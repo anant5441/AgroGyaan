@@ -1,4 +1,4 @@
-# 🌾 Agricultural Platform - Crop Farmer Solution
+# 🌾 AGROGYAAN - Crop Farmer Solution
 
 ## Overview
 A comprehensive digital platform designed to revolutionize agriculture by connecting farmers, buyers, and equipment suppliers through advanced technology and data-driven insights. The platform provides intelligent crop management, market connectivity, and essential farming tools in a user-friendly interface.
@@ -164,6 +164,98 @@ Specialized marketplace for agricultural equipment and machinery:
 - **Customer Support**: 24/7 technical assistance and platform guidance
 - **Training Programs**: Educational resources for platform adoption
 - **Multilingual Support**: Customer service in regional languages
+
+## 📁 Project Architecture
+
+### Folder Structure Overview
+```
+agrogyaan/
+│
+├── frontend/                           # React + Tailwind (Hybrid Frontend)
+│   ├── public/                         # Static files (favicon, manifest, index.html)
+│   ├── src/
+│   │   ├── assets/                     # Images, icons, logos
+│   │   ├── components/                 # Reusable UI components
+│   │   │   ├── layouts/                # Role-based layouts
+│   │   │   │   ├── FarmerLayout/
+│   │   │   │   ├── BuyerLayout/
+│   │   │   │   └── SupplierLayout/
+│   │   │   └── pages/                  # Route pages
+│   │   │       ├── Farmer/             # Farmer-specific views
+│   │   │       │   ├── Dashboard/
+│   │   │       │   ├── CropListing/
+│   │   │       │   └── Forum/
+│   │   │       ├── Buyer/              # Buyer-specific views
+│   │   │       │   ├── Marketplace/
+│   │   │       │   ├── Cart/
+│   │   │       │   ├── BulkOrders/
+│   │   │       │   └── Contracts/
+│   │   │       ├── Supplier/           # Equipment supplier views
+│   │   │       │   ├── Listings/
+│   │   │       │   ├── Rent/
+│   │   │       │   └── Transactions/
+│   │   │       ├── Auth/               # Login, Signup, OTP
+│   │   │       └── Common/             # Shared pages (Home, About, Contact, Settings)
+│   │   ├── hooks/                      # Custom React hooks
+│   │   ├── context/                    # Context API (AuthContext, LanguageContext, ThemeContext)
+│   │   ├── services/                   # API calls
+│   │   │   ├── api.express.js          # Normal backend API calls
+│   │   │   └── api.ai.js               # AI backend (FastAPI services)
+│   │   ├── utils/                      # Helper functions (formatting, validators, constants)
+│   │   ├── App.js                      # Root app component
+│   │   ├── index.js                    # React entry point
+│   │   └── tailwind.config.js          # Tailwind setup
+│   └── package.json
+│
+├── backend-express/                    # Express.js Backend (Core Marketplace API)
+│   ├── src/
+│   │   ├── config/                     # Config files (DB, environment, constants)
+│   │   ├── middleware/                 # Middlewares (auth, error handling, validation)
+│   │   ├── models/                     # MongoDB/SQL models
+│   │   │   ├── User.js
+│   │   │   ├── Product.js
+│   │   │   ├── Order.js
+│   │   │   ├── Chat.js
+│   │   │   └── Forum.js
+│   │   ├── routes/                     # Express routes
+│   │   │   ├── auth.routes.js
+│   │   │   ├── user.routes.js
+│   │   │   ├── farmer.routes.js
+│   │   │   ├── buyer.routes.js
+│   │   │   ├── supplier.routes.js
+│   │   │   ├── marketplace.routes.js
+│   │   │   ├── chat.routes.js
+│   │   │   └── payment.routes.js
+│   │   ├── controllers/                # Route handlers (business logic)
+│   │   ├── services/                   # Extra logic (payment service, notifications, logistics)
+│   │   ├── utils/                      # Helpers (JWT, password hashing, formatters)
+│   │   ├── app.js                      # Express app setup
+│   │   └── server.js                   # Entry point
+│   └── package.json
+│
+├── backend-ai/                         # FastAPI Backend (AI Models & Predictions)
+│   ├── app/
+│   │   ├── models/                     # AI/ML models (trained models saved here)
+│   │   ├── routes/                     # API endpoints
+│   │   │   ├── crop_recommendation.py
+│   │   │   ├── yield_prediction.py
+│   │   │   ├── soil_analysis.py
+│   │   │   ├── disease_detection.py
+│   │   │   └── weather.py
+│   │   ├── services/                   # ML service functions (load models, run predictions)
+│   │   ├── utils/                      # Preprocessing, image handling, data normalization
+│   │   └── main.py                     # FastAPI app entry point
+│   └── requirements.txt                # Python dependencies
+│
+├── docs/                               # Documentation
+│   ├── system_architecture.png
+│   ├── workflow_diagram.png
+│   └── README.md
+│
+├── .env.example                        # Example env file for secrets
+├── docker-compose.yml                  # Docker setup for frontend + both backends
+└── README.md                           # Project documentation
+```
 
 
 *Empowering Agriculture Through Technology* 🌾✨

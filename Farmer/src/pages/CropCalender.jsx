@@ -6,6 +6,7 @@ import CropCalendarLegend from "@/components/crop-calander-legend";
 import CropCalendarFilters from "@/components/crop-calender-Filter";
 import CropCalendarStats from "@/components/crop-calender-stats";
 import CropRow from "@/components/crop-calender-row";
+import "@/styles/calender.css";
 
 const crops = [
     { crop: "Wheat", sowing: 11, harvesting: 3, type: "rabi" },

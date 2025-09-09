@@ -13,7 +13,7 @@ export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navLinks = [
-    { name: "Interactive Crop Calendar", href: "#calendar" },
+    { name: "Interactive Crop Calendar", href: "/calendar" },
     { name: "Feedback", href: "#feedback" },
     { name: "Login/Signup", href: "#auth" }
   ];

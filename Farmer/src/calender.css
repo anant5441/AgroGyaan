@@ -1,0 +1,13 @@
+/* src/styles/calendar.css */
+
+/* Custom styles only for Crop Calendar page */
+.crop-row {
+  @apply grid grid-cols-12 gap-2 py-2 px-4 rounded-lg;
+  background-color: hsl(var(--card));
+  transition: var(--transition-smooth);
+}
+
+.crop-row:hover {
+  box-shadow: var(--shadow-hover);
+  background: var(--gradient-soft);
+}

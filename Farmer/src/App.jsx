@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import CropCalendar from "./pages/CropCalender";
+import OrganicGuide from "./pages/OrganicFarmingGuide";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
             <Route path="/calendar" element={< CropCalendar/>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
+            <Route path="/organic" element={<OrganicGuide />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

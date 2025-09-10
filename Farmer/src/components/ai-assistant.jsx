@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { MessageCircle, X, Send, Bot, User, Trash2 } from "lucide-react";
+import { EventSourcePolyfill } from 'event-source-polyfill';
 
 export function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -8,14 +9,17 @@ export function AIAssistant() {
     {
       id: "1",
       type: "bot",
-      content:
-        "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, market prices, or any other farming queries.",
+      content: "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, market prices, or any other farming queries.",
       timestamp: new Date(),
     },
   ]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [currentStreamingMessage, setCurrentStreamingMessage] = useState(null);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const eventSourceRef = useRef(null);
 
   // Auto scroll when messages update and focus input when opened
   useEffect(() => {
@@ -26,10 +30,19 @@ export function AIAssistant() {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, currentStreamingMessage]);
 
-  const handleSendMessage = () => {
-    if (!message.trim()) return;
+  // Clean up event source when component unmounts
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || isLoading || isStreaming) return;
 
     const newMessage = {
       id: Date.now().toString(),
@@ -40,48 +53,115 @@ export function AIAssistant() {
 
     setMessages((prev) => [...prev, newMessage]);
     setMessage("");
+    setIsLoading(true);
+    setIsStreaming(true);
 
-    setTimeout(() => {
-      const botResponse = {
+    try {
+      // Close any existing event source
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+
+      // Create a new streaming message
+      const streamingMessageId = (Date.now() + 1).toString();
+      setCurrentStreamingMessage({
+        id: streamingMessageId,
+        type: "bot",
+        content: "",
+        timestamp: new Date(),
+        llm_source: "",
+        sources: []
+      });
+
+      // Create the EventSource connection to the FastAPI endpoint
+      eventSourceRef.current = new EventSourcePolyfill(
+        `http://localhost:8000/api/chat/stream?query=${encodeURIComponent(message)}`,
+        {
+          headers: {
+            'Accept': 'text/event-stream',
+          }
+        }
+      );
+
+      eventSourceRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.is_final) {
+            // Final message - add to messages and reset streaming state
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: streamingMessageId,
+                type: "bot",
+                content: currentStreamingMessage?.content || data.content || "",
+                timestamp: new Date(),
+                llm_source: data.llm_source || currentStreamingMessage?.llm_source,
+                sources: data.sources || currentStreamingMessage?.sources || []
+              }
+            ]);
+            setCurrentStreamingMessage(null);
+            setIsLoading(false);
+            setIsStreaming(false);
+            
+            // Close the event source
+            if (eventSourceRef.current) {
+              eventSourceRef.current.close();
+              eventSourceRef.current = null;
+            }
+          } else {
+            // Update the streaming message with new content
+            setCurrentStreamingMessage(prev => ({
+              ...prev,
+              content: (prev?.content || "") + (data.content || ""),
+              llm_source: data.llm_source || prev?.llm_source,
+              sources: data.sources || prev?.sources || []
+            }));
+          }
+        } catch (error) {
+          console.error("Error parsing event data:", error);
+        }
+      };
+
+      eventSourceRef.current.onerror = (error) => {
+        console.error("EventSource error:", error);
+        setCurrentStreamingMessage(null);
+        setIsLoading(false);
+        setIsStreaming(false);
+        
+        const errorResponse = {
+          id: streamingMessageId,
+          type: "bot",
+          content: "Sorry, I'm having trouble connecting to the AI service. Please try again later.",
+          timestamp: new Date(),
+        };
+        
+        setMessages((prev) => [...prev, errorResponse]);
+        
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
+      };
+
+    } catch (error) {
+      console.error("Error setting up streaming:", error);
+      setCurrentStreamingMessage(null);
+      setIsLoading(false);
+      setIsStreaming(false);
+      
+      const errorResponse = {
         id: (Date.now() + 1).toString(),
         type: "bot",
-        content: getAIResponse(message),
+        content: "Sorry, I'm having trouble connecting to the AI service. Please try again later.",
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, botResponse]);
-    }, 1000);
+      
+      setMessages((prev) => [...prev, errorResponse]);
+    }
   };
 
-  const getAIResponse = (userMessage) => {
-    const lowerMessage = userMessage.toLowerCase();
-
-    if (lowerMessage.includes("disease") || lowerMessage.includes("pest")) {
-      return "For disease identification, please describe the symptoms you're observing on your crops. Common signs include yellowing leaves, spots, wilting, or unusual growth patterns. I can help you identify the issue and suggest treatment options.";
-    }
-
-    if (lowerMessage.includes("weather") || lowerMessage.includes("rain")) {
-      return "Weather is crucial for farming decisions. Based on current forecasts, I recommend checking soil moisture levels and planning irrigation accordingly. Would you like specific weather insights for your region?";
-    }
-
-    if (lowerMessage.includes("price") || lowerMessage.includes("market")) {
-      return "Market prices fluctuate based on demand, supply, and seasonal factors. I can help you track current mandi rates and suggest optimal selling times. Which crop are you interested in?";
-    }
-
-    if (lowerMessage.includes("fertilizer") || lowerMessage.includes("nutrient")) {
-      return "Proper nutrition is essential for healthy crops. The fertilizer requirements depend on your soil type, crop variety, and growth stage. I recommend a soil test to determine specific nutrient needs.";
-    }
-
-    if (lowerMessage.includes("soil") || lowerMessage.includes("crop")) {
-      return "I can provide advice on soil preparation, crop rotation, and optimal planting times. What specific information are you looking for?";
-    }
-
-    if (lowerMessage.includes("hello") || lowerMessage.includes("hi") || lowerMessage.includes("hey")) {
-      return "Hello! How can I assist with your farming needs today?";
-    }
-
-    return "Thank you for your question! I'm here to help with farming advice, crop management, market insights, and agricultural best practices. Could you provide more specific details about your query?";
-  };
-
+  // Rest of your component remains the same...
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -94,11 +174,20 @@ export function AIAssistant() {
       {
         id: "1",
         type: "bot",
-        content:
-          "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, market prices, or any other farming queries.",
+        content: "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, market prices, or any other farming queries.",
         timestamp: new Date(),
       },
     ]);
+    setCurrentStreamingMessage(null);
+    
+    // Close any active event source
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    
+    setIsLoading(false);
+    setIsStreaming(false);
   };
 
   const handleClose = () => {
@@ -191,6 +280,29 @@ export function AIAssistant() {
                   </div>
                 </div>
               ))}
+              
+              {/* Show streaming message if it exists */}
+              {currentStreamingMessage && (
+                <div className="flex justify-start">
+                  <div className="max-w-[75%] p-3 rounded-lg text-sm bg-white text-gray-800 border border-green-100 rounded-bl-none">
+                    <div className="flex items-start space-x-2">
+                      <Bot className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
+                      <span className="leading-relaxed">{currentStreamingMessage.content}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {isLoading && !currentStreamingMessage && (
+                <div className="flex justify-start">
+                  <div className="max-w-[75%] p-3 rounded-lg text-sm bg-white text-gray-800 border border-green-100 rounded-bl-none">
+                    <div className="flex items-center space-x-2">
+                      <Bot className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
+                      <span className="leading-relaxed">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Input */}
@@ -205,10 +317,11 @@ export function AIAssistant() {
                   placeholder="Ask me anything about farming..."
                   className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   aria-label="Type your message"
+                  disabled={isLoading || isStreaming}
                 />
                 <button
                   onClick={handleSendMessage}
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || isLoading || isStreaming}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 transition-colors text-white p-2 rounded-md disabled:cursor-not-allowed"
                   aria-label="Send message"
                 >

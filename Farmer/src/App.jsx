@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import CropCalendar from "./pages/CropCalender";
 import OrganicGuide from "./pages/OrganicFarmingGuide";
+import DiseaseClassifier from "./pages/DiseaseClassifier";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
             <Route path="/organic" element={<OrganicGuide />} />
+            <Route path="/diseaseclassifier" element={<DiseaseClassifier />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

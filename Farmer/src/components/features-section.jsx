@@ -33,7 +33,8 @@ const features = [
     icon: Shield,
     title: "Disease Prediction",
     description: "Early detection and prevention of crop diseases using computer vision and expert knowledge.",
-    category: "Protection"
+    category: "Protection",
+    path: "/diseaseclassifier"
   },
   {
     icon: BookOpen,

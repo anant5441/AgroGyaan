@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.chat_router import router as chat_router  # Import 'router' and rename it
+from routes import organicguide_router
 import os
 
 app = FastAPI(title="AI Farming Assistant API")
@@ -16,6 +17,7 @@ app.add_middleware(
 
 # Include routers - now using the renamed import
 app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(organicguide_router.router)
 
 @app.get("/")
 async def root():

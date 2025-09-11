@@ -78,7 +78,8 @@ const features = [
     icon: BarChart3,
     title: "Market Price Dashboard",
     description: "Real-time mandi prices and market trends to help you make informed selling decisions.",
-    category: "Analytics"
+    category: "Analytics",
+    path: "/pricedashboard"
   },
   {
     icon: MessageSquare,

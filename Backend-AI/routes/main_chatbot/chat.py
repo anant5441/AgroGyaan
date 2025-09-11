@@ -6,25 +6,24 @@ from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List
+from dotenv import load_dotenv
 import os
 import logging
 import requests
 import json
 from datetime import datetime
 import google.generativeai as genai
-from dotenv import load_dotenv
 
 # Configure logging
 logging.getLogger().setLevel(logging.ERROR)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Constants
+load_dotenv()
+
 PDF_DIR = "data"
-FAISS_DIR = "faiss_index"
+VECTOR_STORE_DIR = "vector_store/chat_db_faiss"
 GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 COSINE_THRESHOLD = 0.5
-
-load_dotenv()
 
 # Define state
 class AgentState(TypedDict):
@@ -41,7 +40,6 @@ class AgentState(TypedDict):
     season_info: dict
     needs_location: bool
 
-# Helper functions
 def load_pdf(path):
     """Load PDF documents from directory"""
     loader = DirectoryLoader(
@@ -63,8 +61,11 @@ def get_embedding_model():
     """Initialize embedding model"""
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-def create_vector_store(chunks, embedding_model, persist_directory="faiss_db"):
+def create_vector_store(chunks, embedding_model, persist_directory=VECTOR_STORE_DIR):
     """Create and persist FAISS vector store"""
+    # Create directory if it doesn't exist
+    os.makedirs(os.path.dirname(persist_directory), exist_ok=True)
+    
     vector_store = FAISS.from_documents(documents=chunks, embedding=embedding_model)
     vector_store.save_local(persist_directory)
     return vector_store
@@ -87,7 +88,7 @@ def get_llm():
 
 def get_gemini_model():
     """Initialize Gemini model for fallback"""
-    api_key = os.getenv("GEMINI_API_KEY") 
+    api_key = os.getenv("GEMINI_API_KEY") or "AIzaSyBzAV8r2Mkx0ETndVYYUSOW7rMhD2QlgSk"
     if not api_key:
         raise ValueError("Missing GEMINI_API_KEY in environment variables")
     
@@ -186,12 +187,16 @@ def needs_location_detection(query):
     has_location_keyword = any(keyword in query_lower for keyword in location_keywords)
     has_crop_keyword = any(keyword in query_lower for keyword in crop_keywords)
     
-    return has_location_keyword or (has_crop_keyword and ("my" in query_lower or "here" in query_lower))
+    # Special case: if it's specifically about temperature/weather, it needs location
+    is_weather_temp_query = any(kw in query_lower for kw in ["temperature", "weather", "forecast"])
+    
+    return has_location_keyword or (has_crop_keyword and ("my" in query_lower or "here" in query_lower)) or is_weather_temp_query
 
+# Geoapify API Tool for location detection
 def detect_user_location():
     """Detect user's location using Geoapify API"""
     try:
-        api_key = os.getenv("GEOAPIFY_API_KEY") 
+        api_key = os.getenv("GEOAPIFY_API_KEY") or "963418ee0f5e478abdb114f824bf4f6a"
         if not api_key:
             return {"error": "Geoapify API key not configured in environment variables"}
         
@@ -214,6 +219,7 @@ def detect_user_location():
     except Exception as e:
         return {"error": f"Location detection error: {str(e)}"}
 
+# Weather API Tool with automatic location detection
 def get_weather_data(location: str = None):
     """Get current weather data - automatically detects location if not provided"""
     try:
@@ -223,12 +229,12 @@ def get_weather_data(location: str = None):
                 return user_location
             location = user_location.get("city", "New Delhi")
         
-        api_key = os.getenv("OPENWEATHER_API_KEY") 
+        api_key = os.getenv("OPENWEATHER_API_KEY") or "57fdae09256220490933044e4a0c3ff9"
         if not api_key:
             return {"error": "OpenWeather API key not configured in environment variables"}
         
-        # Add country code for better accuracy
-        url = f"http://api.openweathermap.org/data/2.5/weather?q={location},IN&appid={api_key}&units=metric"
+        # Use direct API call with proper encoding
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={location}&appid={api_key}&units=metric"
         response = requests.get(url, timeout=10)
         
         if response.status_code == 200:
@@ -250,6 +256,7 @@ def get_weather_data(location: str = None):
     except Exception as e:
         return {"error": f"Weather API error: {str(e)}"}
 
+# Temperature Forecast Tool with automatic location detection
 def get_temperature_forecast(location: str = None, days: int = 3):
     """Get temperature forecast - automatically detects location if not provided"""
     try:
@@ -260,7 +267,7 @@ def get_temperature_forecast(location: str = None, days: int = 3):
                 return user_location
             location = user_location.get("city", "New Delhi")
         
-        api_key = os.getenv("OPENWEATHER_API_KEY") 
+        api_key = os.getenv("OPENWEATHER_API_KEY") or "57fdae09256220490933044e4a0c3ff9"
         if not api_key:
             return {"error": "OpenWeather API key not configured in environment variables"}
         
@@ -318,23 +325,31 @@ def get_seasonal_info():
 
 def extract_location_from_query(query):
     """Extract location name from a query"""
-    # List of common location indicators
-    location_indicators = ["in", "at", "near", "around", "of", "for"]
+    # List of common Indian cities and location indicators
+    indian_cities = [
+        "kanpur", "delhi", "mumbai", "chennai", "kolkata", "bangalore", 
+        "hyderabad", "pune", "jaipur", "lucknow", "gurgaon", "gurugram",
+        "ahmedabad", "surat", "kochi", "bhopal", "indore", "nagpur",
+        "patna", "varanasi", "ludhiana", "agra", "nashik", "faridabad"
+    ]
     
     query_lower = query.lower()
     
     # Check for specific city mentions
-    indian_cities = ["agra", "delhi", "mumbai", "chennai", "kolkata", "bangalore", 
-                    "hyderabad", "pune", "jaipur", "lucknow", "gurgaon", "gurugram"]
-    
     for city in indian_cities:
         if city in query_lower:
             return city.title()
     
-    # Try to extract location based on location indicators
-    for indicator in location_indicators:
-        if indicator in query_lower:
-            parts = query_lower.split(indicator)
+    # Try to extract location based on common patterns
+    location_patterns = [
+        "temperature of", "weather in", "weather at", "weather for",
+        "temperature in", "temperature at", "temperature for",
+        "forecast in", "forecast at", "forecast for"
+    ]
+    
+    for pattern in location_patterns:
+        if pattern in query_lower:
+            parts = query_lower.split(pattern)
             if len(parts) > 1:
                 potential_location = parts[1].strip().split()[0]
                 if len(potential_location) > 2:  # Avoid very short words
@@ -343,7 +358,7 @@ def extract_location_from_query(query):
     return None
 
 def generate_answer_with_gemini(query, source_documents=None, weather_data=None, temperature_data=None, user_location=None, season_info=None):
-    """Generate concise answer using Gemini as primary or fallback"""
+    """Generate answer using Gemini as the primary LLM"""
     try:
         gemini_model = get_gemini_model()
         
@@ -405,11 +420,15 @@ def load_documents_node(state: AgentState):
     logging.info("Loading documents...")
     
     try:
-        if os.path.exists("faiss_db/index.faiss"):
-            logging.info("Loading existing FAISS vector store...")
+        # Check if vector store exists in the vector_store folder
+        faiss_index_path = os.path.join(VECTOR_STORE_DIR, "index.faiss")
+        faiss_pkl_path = os.path.join(VECTOR_STORE_DIR, "index.pkl")
+        
+        if os.path.exists(faiss_index_path) and os.path.exists(faiss_pkl_path):
+            logging.info("Loading existing FAISS vector store from vector_store/chat_db_faiss...")
             embedding_model = get_embedding_model()
             vector_store = FAISS.load_local(
-                "faiss_db",
+                VECTOR_STORE_DIR,
                 embeddings=embedding_model,
                 allow_dangerous_deserialization=True
             )
@@ -418,13 +437,13 @@ def load_documents_node(state: AgentState):
             documents = load_pdf("data")
             chunks = create_chunks(documents)
             embedding_model = get_embedding_model()
-            vector_store = create_vector_store(chunks, embedding_model)
+            vector_store = create_vector_store(chunks, embedding_model, VECTOR_STORE_DIR)
         
         # Check if the query needs location detection
         needs_loc = needs_location_detection(state["query"])
         
         return {
-            "documents": vector_store, 
+            "documents": vector_store,  # This should be the FAISS object, not a list
             "needs_location": needs_loc,
             "season_info": get_seasonal_info(),
             "error": None
@@ -460,7 +479,7 @@ def retrieve_documents_node(state: AgentState):
         return {"error": f"Failed to retrieve documents: {str(e)}"}
 
 def generate_answer_node(state: AgentState):
-    """Generate answer using LLM with fallback to Gemini if needed"""
+    """Generate answer using Gemini as the primary LLM"""
     logging.info("Generating answer...")
     
     try:
@@ -470,12 +489,13 @@ def generate_answer_node(state: AgentState):
         season_info = state.get("season_info", {})
         needs_location = state.get("needs_location", False)
 
-        # Detect if query is only about weather/location
-        weather_keywords = ["weather", "temperature", "forecast", "rain", "sunny", "humidity", "climate"]
-        location_keywords = ["location", "where am i", "my city", "detect location"]
-
-        is_weather_query = any(k in query.lower() for k in weather_keywords)
-        is_location_query = any(k in query.lower() for k in location_keywords)
+        # Enhanced query type detection
+        weather_keywords = ["weather", "temperature", "forecast", "rain", "sunny", "humidity", "climate", "hot", "cold", "warm"]
+        location_keywords = ["location", "where am i", "my city", "detect location", "what is my location"]
+        
+        query_lower = query.lower()
+        is_weather_query = any(k in query_lower for k in weather_keywords)
+        is_location_query = any(k in query_lower for k in location_keywords) and not is_weather_query
 
         # 🔹 Location-only query → Skip LLM
         if is_location_query:
@@ -491,15 +511,56 @@ def generate_answer_node(state: AgentState):
                 "error": None
             }
 
-        # 🔹 Weather-only query → Call API directly
+        # 🔹 Weather/temperature query → Call API directly
         if is_weather_query:
-            location = extract_location_from_query(query) or user_location.get("city") or "New Delhi"
+            # Use detected location or extract from query
+            location = user_location.get("city") or extract_location_from_query(query) or "New Delhi"
+            
+            # Debug: Print the location being used
+            print(f"DEBUG: Using location: {location}")
+            
+            # Get weather data
             weather_data = get_weather_data(location)
             forecast = get_temperature_forecast(location)
-
+            
+            # Debug: Print weather API response
+            print(f"DEBUG: Weather API response: {weather_data}")
+            
+            # If weather API fails, use Gemini to provide a helpful response
+            if "error" in weather_data:
+                print(f"DEBUG: Weather API error: {weather_data['error']}")
+                answer, source = generate_answer_with_gemini(
+                    query, source_documents, weather_data, forecast, user_location, season_info
+                )
+                return {
+                    "answer": answer,
+                    "source_documents": [],
+                    "llm_source": source,
+                    "weather_data": weather_data,
+                    "temperature_data": forecast,
+                    "season_info": season_info,
+                    "user_location": user_location,
+                    "error": None
+                }
+            
+            # 🔹 Create a proper temperature response
+            temp = weather_data.get('temperature', 'N/A')
+            conditions = weather_data.get('conditions', 'N/A')
+            location_name = weather_data.get('location', location)
+            
+            # Special handling for temperature-specific queries
+            if "temperature" in query_lower:
+                if temp != 'N/A':
+                    answer = f"The current temperature at your location ({location_name}) is {temp}°C."
+                    if conditions != 'N/A':
+                        answer += f" Weather conditions: {conditions}."
+                else:
+                    answer = f"Sorry, I couldn't retrieve the temperature for {location_name}. Please try again later."
+            else:
+                answer = f"Current weather in {location_name}: {temp}°C, {conditions}."
+            
             return {
-                "answer": f"Right now in {location}: {weather_data.get('temperature', 'N/A')}°C, "
-                        f"{weather_data.get('conditions', 'N/A')}.",
+                "answer": answer,
                 "source_documents": [],
                 "llm_source": "OpenWeather API",
                 "weather_data": weather_data,
@@ -509,32 +570,14 @@ def generate_answer_node(state: AgentState):
                 "error": None
             }
 
-        # 🔹 Else → Use Groq (with Gemini fallback)
-        vector_store = state["documents"]
-        llm = get_llm()
-        retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=llm,
-            chain_type="stuff",
-            retriever=retriever,
-            return_source_documents=True
+        # 🔹 Else → Use Gemini as the primary LLM
+        answer, source = generate_answer_with_gemini(
+            query, source_documents, {}, {}, user_location, season_info
         )
-
-        prompt = f"Provide concise and practical farming advice. Current season: {season_info.get('current_season', '')}."
-        result = qa_chain.invoke({"query": f"{prompt}\n\n{query}"})
-        answer = result["result"].strip()
-
-        if is_poor_answer(answer):
-            answer, source = generate_answer_with_gemini(
-                query, result.get("source_documents"), {}, {}, user_location, season_info
-            )
-        else:
-            source = "Groq"
 
         return {
             "answer": answer,
-            "source_documents": result.get("source_documents", []),
+            "source_documents": source_documents,
             "llm_source": source,
             "weather_data": {},
             "temperature_data": {},
@@ -564,10 +607,7 @@ def output_node(state: AgentState):
     }
     
     if "source_documents" in state and state["source_documents"]:
-        result["sources"] = [
-            f"{doc.metadata.get('source', 'Unknown')}: {doc.page_content[:200]}..."
-            for doc in state["source_documents"]
-        ]
+        result["source_documents"] = state["source_documents"]
     
     if "weather_data" in state:
         result["weather_data"] = state["weather_data"]
@@ -576,7 +616,7 @@ def output_node(state: AgentState):
         result["temperature_data"] = state["temperature_data"]
     
     if "user_location" in state and state["user_location"]:
-        result["detected_location"] = state["user_location"]
+        result["user_location"] = state["user_location"]
     
     if "season_info" in state and state["season_info"]:
         result["season_info"] = state["season_info"]
@@ -608,170 +648,39 @@ def create_workflow():
     
     return workflow.compile()
 
-# Main function to run the chat pipeline
-
-def run_chat_pipeline_streaming(query: str):
-        """Run the chat pipeline with streaming support"""
-        logging.info(f"Processing streaming query: {query}")
-        
-        # Initialize state
-        initial_state = AgentState(
-            query=query,
-            documents=[],
-            answer="",
-            source_documents=[],
-            weather_data={},
-            temperature_data={},
-            user_location={},
-            tool_outputs=[],
-            llm_source="",
-            error=None,
-            season_info={},
-            needs_location=False
-        )
-        
-        try:
-            # Create workflow
-            workflow = create_workflow()
-            
-            # Execute the workflow step by step for streaming
-            current_state = initial_state
-            
-            # Step 1: Load documents
-            yield {"content": "Loading documents...", "is_final": False}
-            load_result = load_documents_node(current_state)
-            current_state.update(load_result)
-            
-            # Step 2: Detect location if needed
-            if current_state.get("needs_location", False):
-                yield {"content": "Detecting your location...", "is_final": False}
-                location_result = detect_location_node(current_state)
-                current_state.update(location_result)
-            
-            # Step 3: Retrieve documents
-            yield {"content": "Searching for relevant information...", "is_final": False}
-            retrieve_result = retrieve_documents_node(current_state)
-            current_state.update(retrieve_result)
-            
-            # Step 4: Generate answer with streaming
-            yield {"content": "Generating answer...", "is_final": False}
-            
-            # For streaming, we need to handle the LLM response differently
-            try:
-                query = current_state["query"]
-                user_location = current_state.get("user_location", {})
-                source_documents = current_state.get("source_documents", [])
-                season_info = current_state.get("season_info", {})
-                
-                # Check if it's a weather/location query
-                weather_keywords = ["weather", "temperature", "forecast", "rain", "sunny", "humidity", "climate"]
-                location_keywords = ["location", "where am i", "my city", "detect location"]
-                
-                is_weather_query = any(k in query.lower() for k in weather_keywords)
-                is_location_query = any(k in query.lower() for k in location_keywords)
-                
-                if is_location_query:
-                    location = user_location.get("city") or detect_user_location().get("city", "Unknown")
-                    answer = f"Your current detected location is {location}."
-                    yield {"content": answer, "is_final": True, "llm_source": "Location API", "sources": []}
-                    return
-                    
-                elif is_weather_query:
-                    location = extract_location_from_query(query) or user_location.get("city") or "New Delhi"
-                    weather_data = get_weather_data(location)
-                    forecast = get_temperature_forecast(location)
-                    
-                    answer = f"Right now in {location}: {weather_data.get('temperature', 'N/A')}°C, {weather_data.get('conditions', 'N/A')}."
-                    yield {"content": answer, "is_final": True, "llm_source": "OpenWeather API", "sources": []}
-                    return
-                
-                else:
-                    # Use Groq with streaming (simulated since Groq doesn't support native streaming in this setup)
-                    vector_store = current_state["documents"]
-                    llm = get_llm()
-                    retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-                    
-                    qa_chain = RetrievalQA.from_chain_type(
-                        llm=llm,
-                        chain_type="stuff",
-                        retriever=retriever,
-                        return_source_documents=True
-                    )
-                    
-                    prompt = f"Provide concise and practical farming advice. Current season: {season_info.get('current_season', '')}."
-                    result = qa_chain.invoke({"query": f"{prompt}\n\n{query}"})
-                    answer = result["result"].strip()
-                    
-                    # Simulate streaming by sending chunks
-                    words = answer.split()
-                    for i in range(0, len(words), 5):  # Send 5 words at a time
-                        chunk = " ".join(words[i:i+5])
-                        yield {"content": chunk + " ", "is_final": False}
-                    
-                    # Final message with metadata
-                    yield {
-                        "content": "",
-                        "is_final": True,
-                        "llm_source": "Groq",
-                        "sources": [
-                            f"{doc.metadata.get('source', 'Unknown')}: {doc.page_content[:200]}..."
-                            for doc in result.get("source_documents", [])
-                        ] if result.get("source_documents") else []
-                    }
-                    
-            except Exception as e:
-                # Fallback to Gemini if Groq fails
-                try:
-                    answer, source = generate_answer_with_gemini(
-                        query, source_documents, {}, {}, user_location, season_info
-                    )
-                    
-                    # Simulate streaming for Gemini too
-                    words = answer.split()
-                    for i in range(0, len(words), 5):
-                        chunk = " ".join(words[i:i+5])
-                        yield {"content": chunk + " ", "is_final": False}
-                    
-                    yield {
-                        "content": "",
-                        "is_final": True,
-                        "llm_source": source,
-                        "sources": []
-                    }
-                    
-                except Exception as fallback_error:
-                    error_msg = f"Error: {str(fallback_error)}"
-                    yield {"content": error_msg, "is_final": True, "llm_source": "Error", "sources": []}
-                    
-        except Exception as e:
-            yield {"content": f"Error processing query: {str(e)}", "is_final": True, "llm_source": "Error", "sources": []}
-
-def run_chat_pipeline(query: str):
-    """Run the complete chat pipeline for a query"""
-    logging.info(f"Processing query: {query}")
+# Main execution function
+def main():
+    """Main function to run the workflow"""
+    workflow = create_workflow()
+    
+    # Test with temperature query
+    query = "what is the temperature of my current location"
     
     # Initialize state
-    initial_state = AgentState(
-        query=query,
-        documents=[],
-        answer="",
-        source_documents=[],
-        weather_data={},
-        temperature_data={},
-        user_location={},
-        tool_outputs=[],
-        llm_source="",
-        error=None,
-        season_info={},
-        needs_location=False
-    )
+    initial_state = {
+        "query": query,
+        "documents": [],
+        "answer": "",
+        "source_documents": [],
+        "weather_data": {},
+        "temperature_data": {},
+        "user_location": {},
+        "tool_outputs": [],
+        "llm_source": "",
+        "error": None,
+        "season_info": {},
+        "needs_location": False
+    }
     
-    # Create and run workflow
-    try:
-        workflow = create_workflow()
-        result = workflow.invoke(initial_state)
-        return result
-    except Exception as e:
-        return {"error": f"Error processing query: {str(e)}"}
+    # Execute the workflow
+    result = workflow.invoke(initial_state)
     
+    print(f"Query: {result['query']}")
+    print(f"Answer: {result['answer']}")
+    print(f"Source: {result['llm_source']}")
     
+    if 'user_location' in result and result['user_location']:
+        print(f"Detected Location: {result['user_location']}")
+
+if __name__ == "__main__":
+    main()

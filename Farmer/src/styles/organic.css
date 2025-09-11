@@ -1,0 +1,131 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Organic Farming Design System - Natural & Earthy Theme */
+
+@layer base {
+  :root {
+    /* Natural Color Palette - HSL Values */
+    --background: 93 25% 95%;           /* #F8FAF5 - Light sage background */
+    --foreground: 78 35% 15%;           /* #2A3619 - Deep forest green */
+
+    --card: 96 30% 98%;                 /* #FDFEFB - Pure natural white */
+    --card-foreground: 78 35% 15%;      /* #2A3619 - Deep forest green */
+
+    --popover: 96 30% 98%;              /* #FDFEFB */
+    --popover-foreground: 78 35% 15%;   /* #2A3619 */
+
+    /* Primary - Fresh Green (#8FA31E) */
+    --primary: 78 70% 38%;              /* #8FA31E - Vibrant organic green */
+    --primary-foreground: 96 30% 98%;   /* #FDFEFB - Natural white */
+
+    /* Secondary - Soft Sage (#CADCAE) */
+    --secondary: 93 25% 75%;            /* #CADCAE - Soft sage */
+    --secondary-foreground: 78 35% 25%; /* #3D4C26 - Dark sage */
+
+    /* Muted - Light Sage (#E1E9C9) */
+    --muted: 93 25% 85%;                /* #E1E9C9 - Light sage */
+    --muted-foreground: 78 25% 45%;     /* #6B7A4F - Medium sage */
+
+    /* Accent - Warm Orange (#EDA35A) */
+    --accent: 29 80% 64%;               /* #EDA35A - Warm harvest orange */
+    --accent-foreground: 96 30% 98%;    /* #FDFEFB - Natural white */
+
+    /* Tertiary - Light Cream (#FEE8D9) */
+    --tertiary: 29 90% 92%;             /* #FEE8D9 - Light cream */
+    --tertiary-foreground: 29 80% 25%;  /* #7A4F1A - Dark cream */
+
+    /* Fresh Lime (#C6D870) */
+    --lime: 75 55% 65%;                 /* #C6D870 - Fresh lime */
+    --lime-foreground: 78 35% 15%;      /* #2A3619 - Deep forest green */
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 96 30% 98%;
+
+    --border: 93 20% 85%;               /* #DDE5D1 - Soft border */
+    --input: 93 20% 90%;                /* #EBF1E3 - Input background */
+    --ring: 78 70% 38%;                 /* #8FA31E - Focus ring */
+
+    --radius: 1rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--lime)));
+    --gradient-earth: linear-gradient(180deg, hsl(var(--tertiary)), hsl(var(--secondary)));
+    --gradient-organic: linear-gradient(45deg, hsl(var(--secondary)), hsl(var(--muted)), hsl(var(--tertiary)));
+
+    /* Shadows */
+    --shadow-organic: 0 4px 20px hsl(var(--primary) / 0.1);
+    --shadow-warm: 0 8px 32px hsl(var(--accent) / 0.15);
+    --shadow-earth: 0 2px 16px hsl(var(--secondary) / 0.3);
+
+    /* Animations */
+    --transition-organic: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --transition-smooth: all 0.3s ease-in-out;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

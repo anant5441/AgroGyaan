@@ -12,6 +12,7 @@ import {
   MessageSquare, 
   Settings 
 } from "lucide-react";
+import {useNavigate} from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -38,7 +39,8 @@ const features = [
     icon: BookOpen,
     title: "Organic Farming Tips",
     description: "Comprehensive educational content and best practices for sustainable organic farming.",
-    category: "Education"
+    category: "Education",
+    path: "/organic"
   },
   {
     icon: Users,
@@ -103,6 +105,8 @@ const categoryColors = {
 };
 
 export function FeaturesSection() {
+
+  const navigate = useNavigate();
   return (
     <section className="py-20 px-4 bg-gradient-soft">
       <div className="container mx-auto">
@@ -126,6 +130,7 @@ export function FeaturesSection() {
             return (
               <Card 
                 key={feature.title}
+                onClick={() => feature.path && navigate(feature.path)}
                 className="group hover:shadow-hover transition-all duration-300 hover:-translate-y-2 cursor-pointer border-0 shadow-card bg-card/60 backdrop-blur-sm"
                 style={{ animationDelay: `${index * 100}ms` }}
               >

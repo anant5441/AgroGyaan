@@ -10,6 +10,7 @@ import CropCalendar from "./pages/CropCalender";
 import OrganicGuide from "./pages/OrganicFarmingGuide";
 import DiseaseClassifier from "./pages/DiseaseClassifier";
 import { Navbar } from "./components/navbar";
+import { MarketPriceDashboard } from "./pages/MarketPriceDashboard";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
             <Route path="/organic" element={<OrganicGuide />} />
             <Route path="/diseaseclassifier" element={<DiseaseClassifier />} />
+            <Route path="/pricedashboard" element={<MarketPriceDashboard />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

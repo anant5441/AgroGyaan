@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import CropCalendar from "./pages/CropCalender";
 import OrganicGuide from "./pages/OrganicFarmingGuide";
 import DiseaseClassifier from "./pages/DiseaseClassifier";
+import { Navbar } from "./components/navbar";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ const App = () => (
         {/* <Toaster /> */}
         <Sonner />
         <BrowserRouter>
+        <Navbar/>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/calendar" element={< CropCalendar/>} />

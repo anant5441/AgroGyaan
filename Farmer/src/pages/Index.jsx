@@ -7,7 +7,7 @@ import { AIAssistant } from "@/components/ai-assistant";
 const Index = () => {
     return (
         <div className="min-h-screen bg-background">
-        <Navbar />
+        {/* <Navbar /> */}
         <main>
             <HeroSection />
             <FeaturesSection />

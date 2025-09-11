@@ -148,7 +148,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FEE8D9' }}>
-      <Header />
+      {/* <Header /> */}
 
       <main className="container mx-auto px-4 py-8">
         {!selectedFile ? (

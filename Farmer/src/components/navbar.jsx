@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {Link} from "react-router-dom";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -30,12 +31,13 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center space-x-3">
+          {/* <div className="flex items-center space-x-3"> */}
+          <Link to="/" className="flex items-center space-x-3 no-underline">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-primary">
               <span className="text-lg font-bold text-primary-foreground">🌱</span>
             </div>
             <span className="text-xl font-bold text-foreground">AGROGYAAN</span>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">

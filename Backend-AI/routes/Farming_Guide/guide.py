@@ -9,10 +9,9 @@ logger = logging.getLogger(__name__)
 
 # Configure API key (make sure it's set in environment variables)
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-# genai.configure(api_key="AIzaSyBlSjEYhD1vOt2TkbkQRGFz5hjFixvxpEQ")
 
 # Use a valid model name
-model = genai.GenerativeModel("gemini-2.0-flash")  # or "gemini-1.0-pro"
+model = genai.GenerativeModel("gemini-2.0-flash")  
 
 async def generate_organic_guide(location: str):
     prompt = f"""

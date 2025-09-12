@@ -1,9 +1,8 @@
-from fastapi import FastAPI, HTTPException , APIRouter
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import logging
-from .chat import create_workflow, AgentState
+from .chat import process_query  # Import your existing process_query function
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -19,15 +18,13 @@ class ChatResponse(BaseModel):
     query: str
     answer: str
     llm_source: str
-    sources: Optional[list] = None
-    weather_data: Optional[Dict[str, Any]] = None
-    temperature_data: Optional[Dict[str, Any]] = None
-    detected_location: Optional[Dict[str, Any]] = None
-    season_info: Optional[Dict[str, Any]] = None
+    sources: Optional[List[str]] = None
+    weather: Optional[Dict[str, Any]] = None
+    location: Optional[Dict[str, Any]] = None
+    season: Optional[Dict[str, Any]] = None
+    agricultural_alerts: Optional[List[str]] = None
+    crop_suggestions: Optional[List[str]] = None
     error: Optional[str] = None
-
-# Initialize workflow
-workflow = create_workflow()
 
 @router.get("/")
 async def root():
@@ -39,57 +36,34 @@ async def chat_endpoint(request: ChatRequest):
     try:
         logger.info(f"Processing query: {request.query}")
         
-        # Initialize state
-        initial_state = AgentState(
-            query=request.query,
-            documents=[],
-            answer="",
-            source_documents=[],
-            weather_data={},
-            temperature_data={},
-            user_location={},
-            tool_outputs=[],
-            llm_source="",
-            error=None,
-            season_info={},
-            needs_location=False
-        )
+        # Process the query using your existing function
+        result = process_query(request.query)
         
-        # Run workflow
-        result = workflow.invoke(initial_state)
+        # Check if there's an error in the result
+        if "error" in result:
+            return ChatResponse(
+                query=request.query,
+                answer="Sorry, I encountered an error processing your request.",
+                llm_source="System",
+                error=result["error"]
+            )
         
-        # Format response
+        # Format the response according to the ChatResponse model
         response_data = {
             "query": result.get("query", request.query),
             "answer": result.get("answer", ""),
             "llm_source": result.get("llm_source", "Unknown"),
+            "sources": result.get("sources", []),
+            "weather": result.get("weather", {}),
+            "location": result.get("location", {}),
+            "season": result.get("season", {}),
+            "agricultural_alerts": result.get("agricultural_alerts", []),
+            "crop_suggestions": result.get("crop_suggestions", []),
             "error": result.get("error")
         }
         
-        if "source_documents" in result and result["source_documents"]:
-            response_data["sources"] = [
-                f"{doc.metadata.get('source', 'Unknown')}: {doc.page_content[:200]}..."
-                for doc in result["source_documents"]
-            ]
-        
-        if "weather_data" in result:
-            response_data["weather_data"] = result["weather_data"]
-        
-        if "temperature_data" in result:
-            response_data["temperature_data"] = result["temperature_data"]
-        
-        if "user_location" in result and result["user_location"]:
-            response_data["detected_location"] = result["user_location"]
-        
-        if "season_info" in result and result["season_info"]:
-            response_data["season_info"] = result["season_info"]
-        
-        res = ChatResponse(**response_data)
-        print(res)
-        
-        return res
+        return ChatResponse(**response_data)
         
     except Exception as e:
         logger.error(f"Error processing chat request: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
-

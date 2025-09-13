@@ -1,6 +1,6 @@
 # routes/organicguide_router.py
 from fastapi import APIRouter, Query
-from .guide import generate_organic_guide
+from services.Farming_Guide.guide import generate_organic_guide
 
 router = APIRouter()
 

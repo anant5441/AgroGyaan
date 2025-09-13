@@ -283,21 +283,36 @@ const getCardClasses = (additionalClasses = '') => {
   return `rounded-2xl border bg-card text-card-foreground shadow-sm ${additionalClasses}`;
 };
 
+const PIXABAY_API_KEY = "44744901-93b411373706b03cfd4bcd668";
+
 const CropGuide = ({ location,crop }) => {
   // Mock data - in real app this would come from backend API
 
   const [guide,setGuide]=useState(null);
+  const [images,setImages]=useState([]);
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
-    const fetchGuide=async()=>{
+    const fetchGuideAndImages=async()=>{
       try{
         setLoading(true);
+        // fetch organic guide from backend
         const res = await fetch(
           `http://127.0.0.1:8000/guide-crop/?location=${location}&crop=${crop}`
         );
         const data = await res.json();
         setGuide(data.guide);
+
+        // fetch images from pixabay
+
+        const imgRes = await fetch(
+          `https://pixabay.com/api/?key=${PIXABAY_API_KEY}&q=fresh+${encodeURIComponent(
+            crop
+          )}&image_type=photo&per_page=3`
+        );
+        const imgData = await imgRes.json();
+        setImages(imgData.hits || []);
+
       }catch(err){
         console.error("Error fetching crop guide:",err);
       }
@@ -306,7 +321,7 @@ const CropGuide = ({ location,crop }) => {
       } 
     };
 
-    fetchGuide();
+    fetchGuideAndImages();
   },[location,crop]);
 
   if(loading){
@@ -434,7 +449,7 @@ const CropGuide = ({ location,crop }) => {
           </div>
           <div className="flex justify-center">
             <img
-              src="https://placehold.co/600x400/A8E6CF/3D9970?text=Organic+Crops"
+              src={images[0].webformatURL}
               alt="Organic crops"
               className="rounded-2xl shadow-lg shadow-gray-400 max-w-full h-auto"
             />

@@ -12,193 +12,172 @@ import { Progress } from '@/components/ui/progress';
 import { TrendingUp, TrendingDown, BarChart3, Search, Filter, Calendar as CalendarIcon, MapPin, Info, AlertCircle, Target, Activity, Zap, Eye, ChevronUp, ChevronDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { motion } from "framer-motion";
-
-
-/**
- * @typedef {Object} MarketRecord
- * @property {string} State
- * @property {string} District
- * @property {string} Market
- * @property {string} Commodity
- * @property {string} Variety
- * @property {string} Grade
- * @property {string} Arrival_Date
- * @property {string} Min_Price
- * @property {string} Max_Price
- * @property {string} Modal_Price
- * @property {string} Commodity_Code
- */
-
-/**
- * @typedef {Object} ApiResponse
- * @property {number} total
- * @property {number} count
- * @property {MarketRecord[]} records
- */
+import { statesName } from '@/constants/statesName';
+import {format} from 'date-fns';
 
 // Enhanced mock data for demonstration
-const mockApiResponse = {
-  total: 936,
-  count: 936,
-  records: [
-    {
-      State: "Punjab",
-      District: "Nawanshahr",
-      Market: "Nawanshahar",
-      Commodity: "Maize",
-      Variety: "Medium",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "1435",
-      Max_Price: "2202",
-      Modal_Price: "2144",
-      Commodity_Code: "4"
-    },
-    {
-      State: "Punjab",
-      District: "Ferozpur",
-      Market: "Zira",
-      Commodity: "Cauliflower",
-      Variety: "Cauliflower",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "3000",
-      Max_Price: "5500",
-      Modal_Price: "4500",
-      Commodity_Code: "34"
-    },
-    {
-      State: "Punjab",
-      District: "Hoshiarpur",
-      Market: "Mukerian",
-      Commodity: "Cauliflower",
-      Variety: "Cauliflower",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "3500",
-      Max_Price: "5500",
-      Modal_Price: "4500",
-      Commodity_Code: "34"
-    },
-    {
-      State: "Punjab",
-      District: "Mohali",
-      Market: "Kurali",
-      Commodity: "Cauliflower",
-      Variety: "Cauliflower",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "4000",
-      Max_Price: "5000",
-      Modal_Price: "4500",
-      Commodity_Code: "34"
-    },
-    {
-      State: "Punjab",
-      District: "Muktsar",
-      Market: "Muktsar",
-      Commodity: "Cauliflower",
-      Variety: "Cauliflower",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "3800",
-      Max_Price: "4200",
-      Modal_Price: "4000",
-      Commodity_Code: "34"
-    },
-    {
-      State: "Punjab",
-      District: "Jalandhar",
-      Market: "Jalandhar",
-      Commodity: "Wheat",
-      Variety: "Local",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "2500",
-      Max_Price: "2800",
-      Modal_Price: "2650",
-      Commodity_Code: "1"
-    },
-    {
-      State: "Punjab",
-      District: "Amritsar",
-      Market: "Amritsar",
-      Commodity: "Rice",
-      Variety: "Basmati",
-      Grade: "A",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "3200",
-      Max_Price: "3800",
-      Modal_Price: "3500",
-      Commodity_Code: "2"
-    },
-    {
-      State: "Punjab",
-      District: "Ludhiana",
-      Market: "Ludhiana",
-      Commodity: "Cotton",
-      Variety: "Medium",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "5500",
-      Max_Price: "6200",
-      Modal_Price: "5850",
-      Commodity_Code: "5"
-    },
-    {
-      State: "Punjab",
-      District: "Patiala",
-      Market: "Patiala",
-      Commodity: "Sugarcane",
-      Variety: "Local",
-      Grade: "FAQ",
-      Arrival_Date: "04/09/2025",
-      Min_Price: "3800",
-      Max_Price: "4200",
-      Modal_Price: "4000",
-      Commodity_Code: "6"
-    },
-    {
-      State: "Punjab",
-      District: "Bathinda",
-      Market: "Bathinda",
-      Commodity: "Mustard",
-      Variety: "Local",
-      Grade: "FAQ",
-      Arrival_Date: "04/09/2025",
-      Min_Price: "4500",
-      Max_Price: "5200",
-      Modal_Price: "4850",
-      Commodity_Code: "7"
-    },
-    {
-      State: "Punjab",
-      District: "Moga",
-      Market: "Moga",
-      Commodity: "Potato",
-      Variety: "Red",
-      Grade: "A",
-      Arrival_Date: "03/09/2025",
-      Min_Price: "1800",
-      Max_Price: "2500",
-      Modal_Price: "2200",
-      Commodity_Code: "8"
-    },
-    {
-      State: "Punjab",
-      District: "Kapurthala",
-      Market: "Kapurthala",
-      Commodity: "Onion",
-      Variety: "Red",
-      Grade: "A",
-      Arrival_Date: "03/09/2025",
-      Min_Price: "2200",
-      Max_Price: "3000",
-      Modal_Price: "2600",
-      Commodity_Code: "9"
-    }
-  ]
-};
+// const mockApiResponse = {
+//   total: 936,
+//   count: 936,
+//   records: [
+//     {
+//       State: "Punjab",
+//       District: "Nawanshahr",
+//       Market: "Nawanshahar",
+//       Commodity: "Maize",
+//       Variety: "Medium",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "1435",
+//       Max_Price: "2202",
+//       Modal_Price: "2144",
+//       Commodity_Code: "4"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Ferozpur",
+//       Market: "Zira",
+//       Commodity: "Cauliflower",
+//       Variety: "Cauliflower",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "3000",
+//       Max_Price: "5500",
+//       Modal_Price: "4500",
+//       Commodity_Code: "34"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Hoshiarpur",
+//       Market: "Mukerian",
+//       Commodity: "Cauliflower",
+//       Variety: "Cauliflower",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "3500",
+//       Max_Price: "5500",
+//       Modal_Price: "4500",
+//       Commodity_Code: "34"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Mohali",
+//       Market: "Kurali",
+//       Commodity: "Cauliflower",
+//       Variety: "Cauliflower",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "4000",
+//       Max_Price: "5000",
+//       Modal_Price: "4500",
+//       Commodity_Code: "34"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Muktsar",
+//       Market: "Muktsar",
+//       Commodity: "Cauliflower",
+//       Variety: "Cauliflower",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "3800",
+//       Max_Price: "4200",
+//       Modal_Price: "4000",
+//       Commodity_Code: "34"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Jalandhar",
+//       Market: "Jalandhar",
+//       Commodity: "Wheat",
+//       Variety: "Local",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "2500",
+//       Max_Price: "2800",
+//       Modal_Price: "2650",
+//       Commodity_Code: "1"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Amritsar",
+//       Market: "Amritsar",
+//       Commodity: "Rice",
+//       Variety: "Basmati",
+//       Grade: "A",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "3200",
+//       Max_Price: "3800",
+//       Modal_Price: "3500",
+//       Commodity_Code: "2"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Ludhiana",
+//       Market: "Ludhiana",
+//       Commodity: "Cotton",
+//       Variety: "Medium",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "5500",
+//       Max_Price: "6200",
+//       Modal_Price: "5850",
+//       Commodity_Code: "5"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Patiala",
+//       Market: "Patiala",
+//       Commodity: "Sugarcane",
+//       Variety: "Local",
+//       Grade: "FAQ",
+//       Arrival_Date: "04/09/2025",
+//       Min_Price: "3800",
+//       Max_Price: "4200",
+//       Modal_Price: "4000",
+//       Commodity_Code: "6"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Bathinda",
+//       Market: "Bathinda",
+//       Commodity: "Mustard",
+//       Variety: "Local",
+//       Grade: "FAQ",
+//       Arrival_Date: "04/09/2025",
+//       Min_Price: "4500",
+//       Max_Price: "5200",
+//       Modal_Price: "4850",
+//       Commodity_Code: "7"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Moga",
+//       Market: "Moga",
+//       Commodity: "Potato",
+//       Variety: "Red",
+//       Grade: "A",
+//       Arrival_Date: "03/09/2025",
+//       Min_Price: "1800",
+//       Max_Price: "2500",
+//       Modal_Price: "2200",
+//       Commodity_Code: "8"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Kapurthala",
+//       Market: "Kapurthala",
+//       Commodity: "Onion",
+//       Variety: "Red",
+//       Grade: "A",
+//       Arrival_Date: "03/09/2025",
+//       Min_Price: "2200",
+//       Max_Price: "3000",
+//       Modal_Price: "2600",
+//       Commodity_Code: "9"
+//     }
+//   ]
+// };
 
 const customColors = {
   primary: '#8FA31E',
@@ -216,44 +195,120 @@ export function MarketPriceDashboard() {
     state: 'Punjab',
     district: 'all',
     commodity: 'all',
-    arrivalDate: '04/09/2025' // One week before Sep 11, 2025
+    arrivalDate: null // One week before Sep 11, 2025
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date(2025, 8, 4));
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-const [hoveredCard, setHoveredCard] = useState(null);
+  const [hoveredCard, setHoveredCard] = useState(null);
+  const [apiError, setApiError] = useState(null);
 
+//   useEffect(() => {
+//   const fetchData = async () => {
+//     try {
+//       setLoading(true);
 
-  useEffect(() => {
-    // Simulate API call
+//       const response = await fetch(
+//         `http://127.0.0.1:8000/api/market-price?state=${filters.state}&arrival_date=${filters.arrivalDate}`
+//       );
+//       if (!response.ok) {
+//         throw new Error("Failed to fetch data");
+//       }
+//       const result = await response.json();
+//       setData(result);
+//     } catch (error) {
+//       console.error("Error fetching market price data:", error);
+//       setData({ total: 0, count: 0, records: [] }); // fallback
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   fetchData();
+// }, [filters.state, filters.arrivalDate]);
+
+useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
-      // In real implementation: 
-      // const response = await fetch(`http://127.0.0.1:8000/api/market-price?state=${filters.state}&arrival_date=${filters.arrivalDate}`);
-      // const result = await response.json();
-      
-      // Using mock data for now
-      setTimeout(() => {
-        setData(mockApiResponse);
+      try {
+        setLoading(true);
+        setApiError(null);
+        
+        // Build query parameters
+        const params = new URLSearchParams({
+          state: filters.state
+        });
+        
+        if (filters.district !== 'all') {
+          params.append('district', filters.district);
+        }
+        
+        if (filters.commodity !== 'all') {
+          params.append('commodity', filters.commodity);
+        }
+        
+        if (filters.arrivalDate) {
+          params.append('arrival_date', filters.arrivalDate);
+        }
+        
+        const response = await fetch(
+          `http://127.0.0.1:8000/api/market-price?${params.toString()}`
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.error) {
+          setApiError(result.error);
+          setData({ total: 0, count: 0, records: [] });
+        } else {
+          setData(result.data);
+        }
+      } catch (error) {
+        console.error("Error fetching market price data:", error);
+        setApiError("Failed to fetch data. Please try again.");
+        setData({ total: 0, count: 0, records: [] });
+      } finally {
         setLoading(false);
-      }, 1000);
+      }
     };
 
     fetchData();
-  }, [filters.state, filters.arrivalDate]);
+  }, [filters.state, filters.district, filters.commodity, filters.arrivalDate]);
+
+  // const handleDateSelect = (date) => {
+  //   if (date) {
+  //     setSelectedDate(date);
+  //     const formattedDate = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  //     setFilters(prev => ({ ...prev, arrivalDate: formattedDate }));
+  //   }
+  //   setIsDatePickerOpen(false);
+  // };
 
   const handleDateSelect = (date) => {
     if (date) {
       setSelectedDate(date);
-      const formattedDate = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+      const formattedDate = format(date, 'dd/MM/yyyy');
       setFilters(prev => ({ ...prev, arrivalDate: formattedDate }));
     }
     setIsDatePickerOpen(false);
   };
 
+  const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return 'Select date';
+    try {
+      const [day, month, year] = dateStr.split('/');
+      return format(new Date(year, month - 1, day), 'MMM dd, yyyy');
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   const filteredRecords = useMemo(() => {
-    if (!data) return [];
+    if (!data || !data.records ) return [];
     
     return data.records.filter(record => {
       const matchesDistrict = filters.district === 'all' || record.District === filters.district;
@@ -445,7 +500,7 @@ const [hoveredCard, setHoveredCard] = useState(null);
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="flex items-center space-x-2">
                     <CalendarIcon className="w-4 h-4" />
-                    <span>{filters.arrivalDate}</span>
+                    <span>{formatDisplayDate(filters.arrivalDate)}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -511,7 +566,7 @@ const [hoveredCard, setHoveredCard] = useState(null);
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <label className="text-sm font-medium">State</label>
                   <Select value={filters.state} onValueChange={(value) => setFilters(prev => ({ ...prev, state: value }))}>
                     <SelectTrigger>
@@ -523,7 +578,26 @@ const [hoveredCard, setHoveredCard] = useState(null);
                       <SelectItem value="Uttar Pradesh">Uttar Pradesh</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </div> */}
+
+                <div className="space-y-2">
+  <label className="text-sm font-medium">State</label>
+  <Select
+    value={filters.state}
+    onValueChange={(value) => setFilters(prev => ({ ...prev, state: value }))}
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="Select State" />
+    </SelectTrigger>
+    <SelectContent>
+      {statesName.map((state) => (
+        <SelectItem key={state} value={state}>
+          {state}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
                 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">District</label>

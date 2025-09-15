@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Calendar } from '@/components/ui/calendar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { TrendingUp, TrendingDown, BarChart3, Search, Filter, Calendar as CalendarIcon, MapPin, Info, AlertCircle, Target, Activity, Zap, Eye, ChevronUp, ChevronDown } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { motion } from "framer-motion";
+import { TrendingUp, TrendingDown, BarChart3, Search, Filter, Calendar as CalendarIcon, MapPin, Info, AlertCircle, Target, Activity, Zap, Eye, ChevronUp, ChevronDown, ArrowUpDown, Loader2 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, Legend } from 'recharts';
+import { motion,AnimatePresence } from "framer-motion";
 import { statesName } from '@/constants/statesName';
-import {format} from 'date-fns';
+import {format,parse} from 'date-fns';
 
 // Enhanced mock data for demonstration
 // const mockApiResponse = {
@@ -179,13 +182,56 @@ import {format} from 'date-fns';
 //   ]
 // };
 
+// const customColors = {
+//   primary: '#8FA31E',
+//   secondary: '#C6D870',
+//   accent1: '#CADCAE',
+//   accent2: '#E1E9C9',
+//   accent3: '#EDA35A',
+//   accent4: '#FEE8D9'
+// };
+
 const customColors = {
   primary: '#8FA31E',
   secondary: '#C6D870',
   accent1: '#CADCAE',
   accent2: '#E1E9C9',
   accent3: '#EDA35A',
-  accent4: '#FEE8D9'
+  accent4: '#FEE8D9',
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444'
+};
+
+// Custom hook for pagination
+const usePagination = (totalPages, initialPage = 1) => {
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+  
+  return {
+    currentPage,
+    nextPage,
+    prevPage,
+    goToPage,
+    totalPages
+  };
 };
 
 export function MarketPriceDashboard() {
@@ -203,6 +249,17 @@ export function MarketPriceDashboard() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [apiError, setApiError] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total_records: 0,
+    total_pages: 0,
+    has_next: false,
+    has_prev: false
+  });
+
+  const paginationControls = usePagination(pagination.total_pages, pagination.page);
 
 //   useEffect(() => {
 //   const fetchData = async () => {
@@ -236,7 +293,9 @@ useEffect(() => {
         
         // Build query parameters
         const params = new URLSearchParams({
-          state: filters.state
+          state: filters.state,
+          page: paginationControls.currentPage,
+          limit: pagination.limit
         });
         
         if (filters.district !== 'all') {
@@ -264,20 +323,23 @@ useEffect(() => {
         if (result.error) {
           setApiError(result.error);
           setData({ total: 0, count: 0, records: [] });
+          setPagination(prev => ({ ...prev, total_records: 0, total_pages: 0 }));
         } else {
           setData(result.data);
+          setPagination(result.pagination);
         }
       } catch (error) {
         console.error("Error fetching market price data:", error);
         setApiError("Failed to fetch data. Please try again.");
         setData({ total: 0, count: 0, records: [] });
+        setPagination(prev => ({ ...prev, total_records: 0, total_pages: 0 }));
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [filters.state, filters.district, filters.commodity, filters.arrivalDate]);
+  }, [filters.state, filters.district, filters.commodity, filters.arrivalDate, paginationControls.currentPage, pagination.limit]);
 
   // const handleDateSelect = (date) => {
   //   if (date) {
@@ -293,6 +355,7 @@ useEffect(() => {
       setSelectedDate(date);
       const formattedDate = format(date, 'dd/MM/yyyy');
       setFilters(prev => ({ ...prev, arrivalDate: formattedDate }));
+      paginationControls.goToPage(1);
     }
     setIsDatePickerOpen(false);
   };
@@ -307,10 +370,25 @@ useEffect(() => {
     }
   };
 
+  // const filteredRecords = useMemo(() => {
+  //   if (!data || !data.records ) return [];
+    
+  //   return data.records.filter(record => {
+  //     const matchesDistrict = filters.district === 'all' || record.District === filters.district;
+  //     const matchesCommodity = filters.commodity === 'all' || record.Commodity === filters.commodity;
+  //     const matchesSearch = !searchTerm || 
+  //       record.Market.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //       record.Commodity.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //       record.District.toLowerCase().includes(searchTerm.toLowerCase());
+      
+  //     return matchesDistrict && matchesCommodity && matchesSearch;
+  //   });
+  // }, [data, filters, searchTerm]);
+
   const filteredRecords = useMemo(() => {
     if (!data || !data.records ) return [];
     
-    return data.records.filter(record => {
+    let records = data.records.filter(record => {
       const matchesDistrict = filters.district === 'all' || record.District === filters.district;
       const matchesCommodity = filters.commodity === 'all' || record.Commodity === filters.commodity;
       const matchesSearch = !searchTerm || 
@@ -320,7 +398,32 @@ useEffect(() => {
       
       return matchesDistrict && matchesCommodity && matchesSearch;
     });
-  }, [data, filters, searchTerm]);
+
+    // Apply sorting
+    if (sortConfig.key) {
+      records.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        
+        // Handle numeric values
+        if (sortConfig.key.includes('Price')) {
+          aValue = parseInt(aValue);
+          bValue = parseInt(bValue);
+        }
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    return records;
+  }, [data, filters, searchTerm, sortConfig]);
+
 
   const insights = useMemo(() => {
     if (!filteredRecords.length) return null;

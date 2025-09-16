@@ -36,9 +36,30 @@ const sidebarItems = [
 ];
 
 const DashboardLayout = ({ children }) => {
-  const [darkMode, setDarkMode] = React.useState(false);
+  // const [darkMode, setDarkMode] = React.useState(false);
+  const [darkMode, setDarkMode] = React.useState(
+  () => localStorage.getItem("theme") === "dark"
+);
   const location = useLocation();
   const navigate = useNavigate();
+
+  //   React.useEffect(() => {
+  //   if (darkMode) {
+  //     document.documentElement.classList.add("dark");
+  //   } else {
+  //     document.documentElement.classList.remove("dark");
+  //   }
+  // }, [darkMode]);
+
+  React.useEffect(() => {
+  if (darkMode) {
+    document.documentElement.classList.add("dark");
+    localStorage.setItem("theme", "dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+    localStorage.setItem("theme", "light");
+  }
+}, [darkMode]);
 
   return (
     <div className="min-h-screen bg-gradient-background">

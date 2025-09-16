@@ -2,129 +2,131 @@
 @tailwind components;
 @tailwind utilities;
 
+/* AGROGYAAN Design System - Nature-inspired agricultural marketplace */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Nature-inspired background colors */
+    --background: 130 25% 92%; /* #CADCAE equivalent */
+    --background-soft: 78 35% 90%; /* #E1E9C9 equivalent */
+    --foreground: 120 15% 15%;
+
+    /* Card and surface colors */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 120 15% 15%;
+    --card-hover: 130 25% 95%;
+
+    /* Popover colors */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --popover-foreground: 120 15% 15%;
+
+    /* Primary colors - Earthy greens */
+    --primary: 74 66% 38%; /* #8FA31E equivalent */
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 73 44% 64%; /* #C6D870 equivalent */
+
+    /* Secondary colors - Calming greens */
+    --secondary: 130 25% 92%;
+    --secondary-foreground: 120 15% 15%;
+
+    /* Warm accent colors */
+    --accent: 30 78% 64%; /* #EDA35A equivalent */
+    --accent-foreground: 0 0% 100%;
+    --accent-soft: 30 85% 92%; /* #FEE8D9 equivalent */
+
+    /* Muted colors */
+    --muted: 78 35% 90%;
+    --muted-foreground: 120 10% 45%;
+
+    /* Status colors */
+    --success: 120 60% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 30 78% 64%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Border and input */
+    --border: 130 25% 85%;
+    --input: 130 25% 85%;
+    --ring: 74 66% 38%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(74 66% 38%), hsl(73 44% 64%));
+    --gradient-accent: linear-gradient(135deg, hsl(30 78% 64%), hsl(30 85% 92%));
+    --gradient-background: linear-gradient(135deg, hsl(130 25% 92%), hsl(78 35% 90%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(74 66% 38%), hsl(73 44% 64%));
+
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(130 25% 80%);
+    --shadow-card: 0 8px 30px -8px hsl(130 25% 75%);
+    --shadow-glow: 0 0 30px hsl(74 66% 38% / 0.3);
+
+    /* Border radius */
+    --radius: 1rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
+
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
+
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
+
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
+
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
+
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
+
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
+
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
+
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
   }
 
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    @apply bg-background text-foreground;
   }
-}
-
-@layer components {
-  .bg-gradient-background {
-    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
-  }
-  
-  .bg-gradient-sidebar {
-    background: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.9) 100%);
-  }
-  
-  .bg-gradient-primary {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.8) 100%);
-  }
-  
-  .bg-gradient-accent {
-    background: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(var(--accent)/0.8) 100%);
-  }
-  
-  .shadow-soft {
-    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.1);
-  }
-  
-  .shadow-card {
-    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
-  }
-  
-  .shadow-glow {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-  }
-  
-  .bg-card-hover {
-    background-color: hsl(var(--accent));
-  }
-}
-
-/* Animation classes */
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Additional utility classes for status colors */
-.text-success {
-  color: hsl(142, 76%, 36%);
-}
-
-.bg-success {
-  background-color: hsl(142, 76%, 36%);
-}
-
-.text-success-foreground {
-  color: hsl(142, 76%, 98%);
-}
-
-.bg-success-foreground {
-  background-color: hsl(142, 76%, 98%);
-}
-
-.text-destructive {
-  color: hsl(0, 84%, 60%);
-}
-
-.bg-destructive {
-  background-color: hsl(0, 84%, 60%);
 }

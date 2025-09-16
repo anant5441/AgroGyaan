@@ -33,7 +33,7 @@ import {
     export const Sidebar = ({ collapsed, onToggle }) => {
     return (
         <aside className={cn(
-        "fixed left-0 top-0 h-screen gradient-primary border-r border-border/20 transition-all duration-300 z-40",
+        "fixed left-0 top-0 h-screen gradient-primary border-b border-border/100 shadow-soft transition-all duration-300 z-40",
         collapsed ? "w-16" : "w-64"
         )}>
         <div className="flex flex-col h-full">

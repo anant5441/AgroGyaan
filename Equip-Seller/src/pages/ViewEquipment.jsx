@@ -7,6 +7,9 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../components/ui/alert-dialog';
 import { useToast } from '../hooks/use-toast';
+import tillingMachine from "../assets/tilling-machine.jpg";
+import tractor from "../assets/tractor.jpg";
+import harvester from "../assets/harvester.jpg";
 
 const equipmentData = [
   {
@@ -20,7 +23,7 @@ const equipmentData = [
     condition: 'Good',
     available: true,
     views: 156,
-    image: '/placeholder.svg'
+    image: tractor
   },
   {
     id: 2,
@@ -33,7 +36,7 @@ const equipmentData = [
     condition: 'New',
     available: true,
     views: 89,
-    image: '/placeholder.svg'
+    image: harvester
   },
   {
     id: 3,
@@ -46,7 +49,7 @@ const equipmentData = [
     condition: 'Good',
     available: false,
     views: 234,
-    image: '/placeholder.svg'
+    image: tillingMachine
   }
 ];
 

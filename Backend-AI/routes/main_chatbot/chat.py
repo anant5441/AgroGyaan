@@ -9,6 +9,7 @@ from langchain.schema import Document
 from typing import TypedDict, List, Optional
 from dotenv import load_dotenv
 import os
+import errno
 import sys
 import logging
 import requests
@@ -25,8 +26,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Configuration
-import os
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -710,7 +710,17 @@ def check_cache(query_hash):
 def save_to_cache(query_hash, response_data):
     """Save response to cache"""
     try:
+        if not os.path.exists(CACHE_DIR):
+            try:
+                os.makedirs(CACHE_DIR)
+                logger.info(f"Created cache directory: {CACHE_DIR}")
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
+        
         cache_file = os.path.join(CACHE_DIR, f"{query_hash}.pkl")
+        
+        # Create the cache file with proper permissions
         with open(cache_file, 'wb') as f:
             pickle.dump(response_data, f)
         logger.info("Response saved to cache")

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { cn } from '@/lib/utils';
+import { Footer } from './Footer';
 
 export const DashboardLayout = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -27,6 +28,7 @@ export const DashboardLayout = () => {
                 <Outlet />
                 </div>
             </main>
+            <Footer />
             </div>
         </div>
         </div>

@@ -7,7 +7,8 @@ import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
-const ordersData = [
+// Initial orders data
+const initialOrdersData = [
   {
     id: 'ORD-001',
     buyerName: 'Raj Kumar Sharma',
@@ -50,18 +51,20 @@ const ordersData = [
   }
 ];
 
-const summaryData = {
-  total: ordersData.length,
-  pending: ordersData.filter(o => o.status === 'pending').length,
-  confirmed: ordersData.filter(o => o.status === 'confirmed').length,
-  completed: ordersData.filter(o => o.status === 'completed').length,
-  cancelled: ordersData.filter(o => o.status === 'cancelled').length,
-};
-
 export const Orders = () => {
+  const [orders, setOrders] = useState(initialOrdersData);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('all');
+
+  // Calculate summary data based on current orders
+  const summaryData = {
+    total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    confirmed: orders.filter(o => o.status === 'confirmed').length,
+    completed: orders.filter(o => o.status === 'completed').length,
+    cancelled: orders.filter(o => o.status === 'cancelled').length,
+  };
 
   const getStatusBadge = (status) => {
     const variants = {
@@ -82,7 +85,25 @@ export const Orders = () => {
     return variants[status] || variants.pending;
   };
 
-  const filteredOrders = ordersData.filter(order => {
+  // Function to update order status
+  const updateOrderStatus = (orderId, newStatus) => {
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === orderId 
+          ? { 
+              ...order, 
+              status: newStatus,
+              // Update payment status based on order status
+              paymentStatus: newStatus === 'cancelled' ? 'refunded' : 
+                            newStatus === 'completed' ? 'completed' : 
+                            order.paymentStatus
+            } 
+          : order
+      )
+    );
+  };
+
+  const filteredOrders = orders.filter(order => {
     const matchesSearch = order.buyerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          order.equipmentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          order.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -246,11 +267,19 @@ export const Orders = () => {
                           
                           {order.status === 'pending' && (
                             <>
-                              <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                              <Button 
+                                size="sm" 
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => updateOrderStatus(order.id, 'confirmed')}
+                              >
                                 <Check className="w-4 h-4 mr-2" />
                                 Confirm
                               </Button>
-                              <Button size="sm" variant="destructive">
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => updateOrderStatus(order.id, 'cancelled')}
+                              >
                                 <X className="w-4 h-4 mr-2" />
                                 Cancel
                               </Button>
@@ -258,7 +287,11 @@ export const Orders = () => {
                           )}
                           
                           {order.status === 'confirmed' && (
-                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                            <Button 
+                              size="sm" 
+                              className="bg-blue-600 hover:bg-blue-700"
+                              onClick={() => updateOrderStatus(order.id, 'completed')}
+                            >
                               <Clock className="w-4 h-4 mr-2" />
                               Mark Complete
                             </Button>

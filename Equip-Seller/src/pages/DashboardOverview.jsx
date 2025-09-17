@@ -4,6 +4,7 @@ import heroImage from '../assets/image.png';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { Link } from "react-router-dom";
 
 const statsCards = [
   {
@@ -65,14 +66,18 @@ export const DashboardOverview = () => {
             Your one-stop platform for agricultural equipment trading.
           </p>
           <div className="flex gap-4">
-            <Button className="btn-accent hover:scale-105 transition-smooth">
-              <Plus className="w-4 h-4 mr-2" />
-              List New Equipment
-            </Button>
-            <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm">
-              <Eye className="w-4 h-4 mr-2" />
-              View All Listings
-            </Button>
+            <Link to="/add-equipment" >
+                <Button className="btn-accent hover:scale-105 transition-smooth">
+                  <Plus className="w-4 h-4 mr-2" />
+                  List New Equipment
+                </Button>
+            </Link>
+            <Link to='/equipment'>
+              <Button variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm">
+                <Eye className="w-4 h-4 mr-2" />
+                View All Listings
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -148,10 +153,12 @@ export const DashboardOverview = () => {
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button className="w-full justify-start btn-hero">
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Equipment
-            </Button>
+            <Link to="/add-equipment" className="w-full">
+              <Button className="w-full justify-start btn-hero">
+                <Plus className="w-4 h-4 mr-2" />
+                Add New Equipment
+              </Button>
+            </Link>
             <Button variant="outline" className="w-full justify-start">
               <Package className="w-4 h-4 mr-2" />
               Manage Inventory

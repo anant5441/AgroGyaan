@@ -3,6 +3,7 @@ import { Search, Bell, User, Sun, Moon, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Link } from "react-router-dom";
 import { useTheme } from '@/contexts/ThemeContext';
 import {
     DropdownMenu,
@@ -19,11 +20,11 @@ import {
 
     return (
         <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-sm border-b border-border/20 shadow-soft">
-        <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center justify-between px-6 py-3 ">
             {/* Search Bar */}
-            <div className="flex-1 max-w-md">
+            <div className="flex-1 max-w-md ">
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground " />
                 <Input
                 type="search"
                 placeholder="Search equipment by name or type..."
@@ -52,32 +53,38 @@ import {
 
             {/* Messages */}
             <Button
+                asChild
                 variant="ghost"
                 size="sm"
                 className="relative hover:bg-muted/50 transition-smooth"
-            >
-                <MessageCircle className="w-4 h-4" />
-                <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center text-xs"
                 >
-                3
-                </Badge>
+                <Link to="/messages">
+                    <MessageCircle className="w-4 h-4" />
+                    <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center text-xs"
+                    >
+                    3
+                    </Badge>
+                </Link>
             </Button>
 
             {/* Notifications */}
             <Button
+                asChild
                 variant="ghost"
                 size="sm"
                 className="relative hover:bg-muted/50 transition-smooth"
-            >
-                <Bell className="w-4 h-4" />
-                <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center text-xs"
                 >
-                5
-                </Badge>
+                <Link to="/notifications">
+                    <Bell className="w-4 h-4" />
+                    <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center text-xs"
+                    >
+                    5
+                    </Badge>
+                </Link>
             </Button>
 
             {/* Profile Dropdown */}
@@ -98,7 +105,9 @@ import {
             <DropdownMenuContent align="end" className="w-56 bg-card/95 backdrop-blur-sm border-border/50">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile Settings</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link to="/profile">Profile Settings</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem>Business Info</DropdownMenuItem>
                 <DropdownMenuItem>Account Settings</DropdownMenuItem>
                 <DropdownMenuSeparator />

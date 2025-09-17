@@ -15,6 +15,7 @@ import {
   Moon,
   Sun
 } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -32,34 +33,14 @@ const sidebarItems = [
   { icon: TrendingUp, label: 'Price Tracker', path: '/price-tracker' },
   { icon: MapPin, label: 'Traceability', path: '/traceability' },
   { icon: MessageCircle, label: 'Messages', path: '/messages' },
+  { icon: Bell, label: 'Notifications', path: '/notifications' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 const DashboardLayout = ({ children }) => {
-  // const [darkMode, setDarkMode] = React.useState(false);
-  const [darkMode, setDarkMode] = React.useState(
-  () => localStorage.getItem("theme") === "dark"
-);
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-
-  //   React.useEffect(() => {
-  //   if (darkMode) {
-  //     document.documentElement.classList.add("dark");
-  //   } else {
-  //     document.documentElement.classList.remove("dark");
-  //   }
-  // }, [darkMode]);
-
-  React.useEffect(() => {
-  if (darkMode) {
-    document.documentElement.classList.add("dark");
-    localStorage.setItem("theme", "dark");
-  } else {
-    document.documentElement.classList.remove("dark");
-    localStorage.setItem("theme", "light");
-  }
-}, [darkMode]);
 
   return (
     <div className="min-h-screen bg-gradient-background">
@@ -96,11 +77,11 @@ const DashboardLayout = ({ children }) => {
 
           <div className="mt-8 pt-8 border-t border-primary-foreground/20">
             <button
-              onClick={() => setDarkMode(!darkMode)}
+              onClick={toggleTheme}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground transition-all duration-200"
             >
-              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              <span className="font-medium">Dark Mode</span>
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              <span className="font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
             </button>
           </div>
         </div>
@@ -121,7 +102,12 @@ const DashboardLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative"
+              onClick={() => navigate('/notifications')}
+            >
               <Bell className="w-5 h-5" />
               <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-accent text-accent-foreground text-xs">
                 3

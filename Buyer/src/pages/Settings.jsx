@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +20,53 @@ import {
   Mail,
   Building
 } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useToast } from '@/hooks/use-toast';
+import Footer from '@/components/Footer';
 
 const Settings = () => {
+  const { theme, toggleTheme } = useTheme();
+  const { toast } = useToast();
+  
+  const [profileData, setProfileData] = useState({
+    fullName: 'Rajesh Kumar',
+    email: 'rajesh.kumar@example.com',
+    phone: '+91 98765 43210',
+    buyerType: 'Retail Buyer',
+    address: '123 Green Street, Eco City, Maharashtra, India - 411001',
+    companyName: '',
+    gstNumber: '',
+    language: 'English',
+    priceAlerts: true,
+    orderUpdates: true,
+    newCrops: false,
+    localFirst: true
+  });
+
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleInputChange = (field, value) => {
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveProfile = () => {
+    setIsEditing(false);
+    toast({
+      title: "Profile Updated",
+      description: "Your profile has been successfully updated.",
+    });
+  };
+
+  const handleSaveBusiness = () => {
+    toast({
+      title: "Business Details Saved",
+      description: "Your business information has been saved.",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -42,15 +87,23 @@ const Settings = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center text-2xl text-primary-foreground">
-                  RK
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center text-2xl text-primary-foreground">
+                    {profileData.fullName.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-lg">{profileData.fullName}</h3>
+                    <Badge variant="secondary">{profileData.buyerType}</Badge>
+                    <p className="text-sm text-muted-foreground">Member since January 2024</p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-lg">Rajesh Kumar</h3>
-                  <Badge variant="secondary">Retail Buyer</Badge>
-                  <p className="text-sm text-muted-foreground">Member since January 2024</p>
-                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditing(!isEditing)}
+                >
+                  {isEditing ? 'Cancel' : 'Edit Profile'}
+                </Button>
               </div>
               
               <Separator />
@@ -58,19 +111,39 @@ const Settings = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
-                  <Input id="fullName" defaultValue="Rajesh Kumar" />
+                  <Input 
+                    id="fullName" 
+                    value={profileData.fullName}
+                    onChange={(e) => handleInputChange('fullName', e.target.value)}
+                    disabled={!isEditing}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="rajesh.kumar@example.com" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={profileData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    disabled={!isEditing}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" defaultValue="+91 98765 43210" />
+                  <Input 
+                    id="phone" 
+                    value={profileData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    disabled={!isEditing}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="buyerType">Buyer Type</Label>
-                  <Input id="buyerType" defaultValue="Retail Buyer" disabled />
+                  <Input 
+                    id="buyerType" 
+                    value={profileData.buyerType} 
+                    disabled 
+                  />
                 </div>
               </div>
               
@@ -78,14 +151,29 @@ const Settings = () => {
                 <Label htmlFor="address">Address</Label>
                 <Textarea 
                   id="address" 
-                  defaultValue="123 Green Street, Eco City, Maharashtra, India - 411001"
+                  value={profileData.address}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
                   className="resize-none"
+                  disabled={!isEditing}
                 />
               </div>
               
-              <Button className="bg-gradient-primary hover:shadow-glow">
-                Update Profile
-              </Button>
+              {isEditing && (
+                <div className="flex gap-2">
+                  <Button 
+                    className="bg-gradient-primary hover:shadow-glow"
+                    onClick={handleSaveProfile}
+                  >
+                    Save Changes
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsEditing(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -104,7 +192,10 @@ const Settings = () => {
                     <p className="font-medium">Price Alerts</p>
                     <p className="text-sm text-muted-foreground">Get notified of price changes</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch 
+                    checked={profileData.priceAlerts}
+                    onCheckedChange={(checked) => handleInputChange('priceAlerts', checked)}
+                  />
                 </div>
                 
                 <div className="flex items-center justify-between">
@@ -112,7 +203,10 @@ const Settings = () => {
                     <p className="font-medium">Order Updates</p>
                     <p className="text-sm text-muted-foreground">Track your order status</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch 
+                    checked={profileData.orderUpdates}
+                    onCheckedChange={(checked) => handleInputChange('orderUpdates', checked)}
+                  />
                 </div>
                 
                 <div className="flex items-center justify-between">
@@ -120,7 +214,10 @@ const Settings = () => {
                     <p className="font-medium">New Crops</p>
                     <p className="text-sm text-muted-foreground">Discover fresh arrivals</p>
                   </div>
-                  <Switch />
+                  <Switch 
+                    checked={profileData.newCrops}
+                    onCheckedChange={(checked) => handleInputChange('newCrops', checked)}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -135,7 +232,10 @@ const Settings = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Language</Label>
-                  <Input defaultValue="English" />
+                  <Input 
+                    value={profileData.language}
+                    onChange={(e) => handleInputChange('language', e.target.value)}
+                  />
                 </div>
                 
                 <div className="flex items-center justify-between">
@@ -143,7 +243,10 @@ const Settings = () => {
                     <p className="font-medium">Dark Mode</p>
                     <p className="text-sm text-muted-foreground">Switch to dark theme</p>
                   </div>
-                  <Switch />
+                  <Switch 
+                    checked={theme === 'dark'}
+                    onCheckedChange={toggleTheme}
+                  />
                 </div>
                 
                 <div className="flex items-center justify-between">
@@ -151,14 +254,17 @@ const Settings = () => {
                     <p className="font-medium">Local First</p>
                     <p className="text-sm text-muted-foreground">Prioritize local farmers</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch 
+                    checked={profileData.localFirst}
+                    onCheckedChange={(checked) => handleInputChange('localFirst', checked)}
+                  />
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
 
-        {/* Business Information (if business buyer) */}
+        {/* Business Information */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -171,14 +277,29 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="companyName">Company Name</Label>
-                <Input id="companyName" placeholder="Enter company name" />
+                <Input 
+                  id="companyName" 
+                  placeholder="Enter company name"
+                  value={profileData.companyName}
+                  onChange={(e) => handleInputChange('companyName', e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gstNumber">GST Number</Label>
-                <Input id="gstNumber" placeholder="Enter GST number" />
+                <Input 
+                  id="gstNumber" 
+                  placeholder="Enter GST number"
+                  value={profileData.gstNumber}
+                  onChange={(e) => handleInputChange('gstNumber', e.target.value)}
+                />
               </div>
             </div>
-            <Button variant="outline">Save Business Details</Button>
+            <Button 
+              variant="outline"
+              onClick={handleSaveBusiness}
+            >
+              Save Business Details
+            </Button>
           </CardContent>
         </Card>
 
@@ -200,6 +321,7 @@ const Settings = () => {
           </CardContent>
         </Card>
       </div>
+      <Footer />
     </DashboardLayout>
   );
 };

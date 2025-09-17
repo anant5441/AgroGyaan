@@ -37,121 +37,147 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import { motion, AnimatePresence } from "framer-motion";
 import { statesName } from '@/constants/statesName';
 import { format } from 'date-fns';
-
+import { toast } from 'sonner';
 // Enhanced mock data
-const mockApiResponse = {
-  total: 936,
-  count: 936,
-  records: [
-    {
-      State: "Punjab",
-      District: "Nawanshahr", 
-      Market: "Nawanshahar",
-      Commodity: "Maize",
-      Variety: "Medium",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "1435",
-      Max_Price: "2202", 
-      Modal_Price: "2144",
-      Commodity_Code: "4"
-    },
-    {
-      State: "Punjab",
-      District: "Ferozpur",
-      Market: "Zira", 
-      Commodity: "Cauliflower",
-      Variety: "Cauliflower",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025", 
-      Min_Price: "3000",
-      Max_Price: "5500",
-      Modal_Price: "4500",
-      Commodity_Code: "34"
-    },
-    {
-      State: "Punjab",
-      District: "Hoshiarpur",
-      Market: "Mukerian",
-      Commodity: "Cauliflower", 
-      Variety: "Cauliflower",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "3500",
-      Max_Price: "5500", 
-      Modal_Price: "4500", 
-      Commodity_Code: "34"
-    },
-    {
-      State: "Punjab",
-      District: "Mohali",
-      Market: "Kurali",
-      Commodity: "Cauliflower",
-      Variety: "Cauliflower", 
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "4000",
-      Max_Price: "5000",
-      Modal_Price: "4500",
-      Commodity_Code: "34"
-    },
-    {
-      State: "Punjab",
-      District: "Muktsar", 
-      Market: "Muktsar",
-      Commodity: "Cauliflower",
-      Variety: "Cauliflower",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "3800",
-      Max_Price: "4200",
-      Modal_Price: "4000", 
-      Commodity_Code: "34"
-    },
-    {
-      State: "Punjab",
-      District: "Jalandhar",
-      Market: "Jalandhar",
-      Commodity: "Wheat",
-      Variety: "Local",
-      Grade: "FAQ", 
-      Arrival_Date: "05/09/2025",
-      Min_Price: "2500",
-      Max_Price: "2800",
-      Modal_Price: "2650",
-      Commodity_Code: "1"  
-    },
-    {
-      State: "Punjab",
-      District: "Amritsar",
-      Market: "Amritsar",
-      Commodity: "Rice",
-      Variety: "Basmati",
-      Grade: "A",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "3200", 
-      Max_Price: "3800",
-      Modal_Price: "3500",
-      Commodity_Code: "2"
-    },
-    {
-      State: "Punjab", 
-      District: "Ludhiana",
-      Market: "Ludhiana",
-      Commodity: "Cotton",
-      Variety: "Medium",
-      Grade: "FAQ",
-      Arrival_Date: "05/09/2025",
-      Min_Price: "5500",
-      Max_Price: "6200",
-      Modal_Price: "5850",
-      Commodity_Code: "5"
-    }
-  ]
-};
+// const mockApiResponse = {
+//   total: 936,
+//   count: 936,
+//   records: [
+//     {
+//       State: "Punjab",
+//       District: "Nawanshahr", 
+//       Market: "Nawanshahar",
+//       Commodity: "Maize",
+//       Variety: "Medium",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "1435",
+//       Max_Price: "2202", 
+//       Modal_Price: "2144",
+//       Commodity_Code: "4"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Ferozpur",
+//       Market: "Zira", 
+//       Commodity: "Cauliflower",
+//       Variety: "Cauliflower",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025", 
+//       Min_Price: "3000",
+//       Max_Price: "5500",
+//       Modal_Price: "4500",
+//       Commodity_Code: "34"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Hoshiarpur",
+//       Market: "Mukerian",
+//       Commodity: "Cauliflower", 
+//       Variety: "Cauliflower",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "3500",
+//       Max_Price: "5500", 
+//       Modal_Price: "4500", 
+//       Commodity_Code: "34"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Mohali",
+//       Market: "Kurali",
+//       Commodity: "Cauliflower",
+//       Variety: "Cauliflower", 
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "4000",
+//       Max_Price: "5000",
+//       Modal_Price: "4500",
+//       Commodity_Code: "34"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Muktsar", 
+//       Market: "Muktsar",
+//       Commodity: "Cauliflower",
+//       Variety: "Cauliflower",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "3800",
+//       Max_Price: "4200",
+//       Modal_Price: "4000", 
+//       Commodity_Code: "34"
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Jalandhar",
+//       Market: "Jalandhar",
+//       Commodity: "Wheat",
+//       Variety: "Local",
+//       Grade: "FAQ", 
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "2500",
+//       Max_Price: "2800",
+//       Modal_Price: "2650",
+//       Commodity_Code: "1"  
+//     },
+//     {
+//       State: "Punjab",
+//       District: "Amritsar",
+//       Market: "Amritsar",
+//       Commodity: "Rice",
+//       Variety: "Basmati",
+//       Grade: "A",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "3200", 
+//       Max_Price: "3800",
+//       Modal_Price: "3500",
+//       Commodity_Code: "2"
+//     },
+//     {
+//       State: "Punjab", 
+//       District: "Ludhiana",
+//       Market: "Ludhiana",
+//       Commodity: "Cotton",
+//       Variety: "Medium",
+//       Grade: "FAQ",
+//       Arrival_Date: "05/09/2025",
+//       Min_Price: "5500",
+//       Max_Price: "6200",
+//       Modal_Price: "5850",
+//       Commodity_Code: "5"
+//     }
+//   ]
+// };
 
 // Custom hook for enhanced pagination
-const usePagination = (data, itemsPerPage) => {
+
+
+// Pagination
+
+
+export function MarketPriceDashboard() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const formattedYesterday = format(yesterday, 'dd/MM/yyyy');
+  const [filters, setFilters] = useState({
+    state: 'Punjab',
+    district: 'all', 
+    commodity: 'all',
+    arrivalDate: formattedYesterday,
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDate, setSelectedDate] = useState(yesterday);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [selectedInsight, setSelectedInsight] = useState(null);
+
+  // const pagination = usePagination(filteredRecords, 12);
+
+  const usePagination = (data, itemsPerPage) => {
   const [currentPage, setCurrentPage] = useState(1);
   
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -177,29 +203,15 @@ const usePagination = (data, itemsPerPage) => {
     prevPage,
     hasNext: currentPage < totalPages,
     hasPrev: currentPage > 1,
-    totalItems: data.length
+    totalItems: data.length,
+    limit: itemsPerPage
   };
 };
 
-export function MarketPriceDashboard() {
-  const [data, setData] = useState(mockApiResponse);
-  const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState({
-    state: 'Punjab',
-    district: 'all', 
-    commodity: 'all',
-    arrivalDate: null,
-  });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [selectedInsight, setSelectedInsight] = useState(null);
-
-  // Enhanced filtering logic
   const filteredRecords = useMemo(() => {
-    if (!data || !data.records) return [];
+    if (!data || !data.records ) return [];
     
-    return data.records.filter(record => {
+    let records = data.records.filter(record => {
       const matchesDistrict = filters.district === 'all' || record.District === filters.district;
       const matchesCommodity = filters.commodity === 'all' || record.Commodity === filters.commodity;
       const matchesSearch = !searchTerm || 
@@ -209,10 +221,122 @@ export function MarketPriceDashboard() {
       
       return matchesDistrict && matchesCommodity && matchesSearch;
     });
-  }, [data, filters, searchTerm]);
+
+    // Apply sorting
+    if (sortConfig.key) {
+      records.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        
+        // Handle numeric values
+        if (sortConfig.key.includes('Price')) {
+          aValue = parseInt(aValue);
+          bValue = parseInt(bValue);
+        }
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    return records;
+  }, [data, filters, searchTerm, sortConfig]);
+
+  const pagination = usePagination(filteredRecords, 12);
+
+  // const pagination = usePagination(filteredRecords, 12);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setApiError(null);
+        
+        // Build query parameters
+        const params = new URLSearchParams({
+          state: filters.state,
+          // page: pagination.currentPage,
+          // limit: pagination.limit
+        });
+        
+        if (filters.district !== 'all') {
+          params.append('district', filters.district);
+        }
+        
+        if (filters.commodity !== 'all') {
+          params.append('commodity', filters.commodity);
+        }
+        
+        if (filters.arrivalDate) {
+          params.append('arrival_date', filters.arrivalDate);
+        }
+        
+        const response = await fetch(
+          `http://127.0.0.1:8000/api/market-price?${params.toString()}`
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.error) {
+          setApiError(result.error);
+          setData({ total: 0, count: 0, records: [] });
+          toast.error(result.error);
+        } else {
+          setData(result.data);
+          toast.success(`Data loaded for ${result.used_date || 'latest available date'}`);
+        }
+      } catch (error) {
+        console.error("Error fetching market price data:", error);
+        const errorMsg = "Failed to fetch data. Please try again.";
+        setApiError(errorMsg);
+        setData({ total: 0, count: 0, records: [] });
+        toast.error(errorMsg);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [filters.state, filters.district, filters.commodity, filters.arrivalDate]);
+
+  // const handleDateSelect = (date) => {
+  //   if (date) {
+  //     setSelectedDate(date);
+  //     const formattedDate = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  //     setFilters(prev => ({ ...prev, arrivalDate: formattedDate }));
+  //   }
+  //   setIsDatePickerOpen(false);
+  // };
+
+  // Enhanced filtering logic
+  // const filteredRecords = useMemo(() => {
+  //   if (!data || !data.records) return [];
+    
+  //   return data.records.filter(record => {
+  //     const matchesDistrict = filters.district === 'all' || record.District === filters.district;
+  //     const matchesCommodity = filters.commodity === 'all' || record.Commodity === filters.commodity;
+  //     const matchesSearch = !searchTerm || 
+  //       record.Market.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //       record.Commodity.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //       record.District.toLowerCase().includes(searchTerm.toLowerCase());
+      
+  //     return matchesDistrict && matchesCommodity && matchesSearch;
+  //   });
+  // }, [data, filters, searchTerm]);
+
+  
+
 
   // Pagination
-  const pagination = usePagination(filteredRecords, 12);
+  // const pagination = usePagination(filteredRecords, 12);
 
   // Enhanced insights calculation
   const insights = useMemo(() => {
@@ -322,13 +446,13 @@ export function MarketPriceDashboard() {
 
   // Date handling
   const handleDateSelect = (date) => {
-    if (date) {
-      setSelectedDate(date);
-      const formattedDate = format(date, 'dd/MM/yyyy');
-      setFilters(prev => ({ ...prev, arrivalDate: formattedDate }));
-    }
+  if (date) {
+    setSelectedDate(date);
+    const formattedDate = format(date, 'dd/MM/yyyy');
+    setFilters(prev => ({ ...prev, arrivalDate: formattedDate }));
     setIsDatePickerOpen(false);
-  };
+  }
+};
 
   const formatDisplayDate = (dateStr) => {
     if (!dateStr) return 'Select date';
@@ -908,4 +1032,4 @@ export function MarketPriceDashboard() {
       </div>
     </TooltipProvider>
   );
-}
+} 

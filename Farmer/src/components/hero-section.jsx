@@ -1,8 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import heroImage from "@/assets/hero-agriculture.jpg";
 
-export function HeroSection() {
+export function HeroSection({ featuresRef }) {
+  const scrollToFeatures = () => {
+    if (featuresRef.current) {
+      featuresRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
+  // Initialize the navigate function
+
+  // Function to handle navigation to features
+  const handleExploreFeatures = () => {
+    navigate("/features"); // Navigate to the features page
+  };
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Image */}
@@ -15,7 +30,7 @@ export function HeroSection() {
           backgroundRepeat: 'no-repeat'
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/70 to-background/50"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-background/80 to-background/50"></div>
       </div>
 
       {/* Content */}
@@ -36,7 +51,7 @@ export function HeroSection() {
 
           {/* Description */}
           <div className="space-y-6 animate-fade-in delay-200">
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto font-medium leading-relaxed">
               From crop recommendations to yield predictions, disease detection to market insights - 
               AGROGYAAN brings cutting-edge technology to traditional farming, helping you grow smarter, 
               harvest better, and connect with the entire agricultural community.
@@ -48,6 +63,7 @@ export function HeroSection() {
             <Button 
               size="lg" 
               className="bg-gradient-primary hover:opacity-90 text-primary-foreground px-8 py-6 text-lg font-semibold group shadow-hover"
+              onClick={scrollToFeatures} 
             >
               Explore Features
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />

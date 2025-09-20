@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import buyer from '@/assets/buyer.jpg';
 
 const DashboardOverview = () => {
   const stats = [
@@ -91,16 +92,34 @@ const DashboardOverview = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Welcome Section */}
-      <div className="bg-gradient-primary rounded-3xl p-6 text-primary-foreground">
-        <h1 className="text-2xl font-bold mb-2">Welcome back, Rajesh! 🌾</h1>
-        <p className="text-primary-foreground/90">
-          Fresh produce from 45+ verified farmers is available today. Check out the seasonal specials!
-        </p>
-      </div>
+  {/* Welcome Section */}
+  <div className="relative bg-gradient-primary rounded-3xl p-12 text-primary-foreground overflow-hidden">
+    {/* Background Image with Gradient Overlay */}
+    <div
+      className="absolute inset-0 z-0"
+      style={{
+        backgroundImage: `url(${buyer})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-background/10 via-background/20 to-background/30"></div>
+    </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    {/* Foreground Content */}
+    <div className="relative z-10">
+      <h1 className="text-2xl font-bold mb-2">Welcome back, Rajesh! 🌾</h1>
+      <p className="text-primary-foreground/90">
+        Fresh produce from 45+ verified farmers is available today. Check out
+        the seasonal specials!
+      </p>
+    </div>
+</div>
+
+
+  {/* Stats Grid */}
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
           <Card key={index} className="border-0 shadow-card hover:shadow-glow transition-all duration-300 hover:scale-105">
             <CardContent className="p-6">

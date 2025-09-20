@@ -11,6 +11,7 @@ import OrganicGuide from "./pages/OrganicFarmingGuide";
 import DiseaseClassifier from "./pages/DiseaseClassifier";
 import { Navbar } from "./components/navbar";
 import { MarketPriceDashboard } from "./pages/MarketPriceDashboard";
+import { FeaturesPage } from "./pages/FeaturesPage";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/organic" element={<OrganicGuide />} />
             <Route path="/diseaseclassifier" element={<DiseaseClassifier />} />
             <Route path="/pricedashboard" element={<MarketPriceDashboard />} />
+            <Route path="/features" element={<FeaturesPage />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

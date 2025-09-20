@@ -15,6 +15,7 @@ import {
 import {useNavigate} from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { forwardRef } from "react";
 
 const features = [
   {
@@ -106,11 +107,11 @@ const categoryColors = {
   "Services": "bg-primary/5 text-primary"
 };
 
-export function FeaturesSection() {
+export const FeaturesSection = forwardRef((props, ref) => {
 
   const navigate = useNavigate();
   return (
-    <section className="py-20 px-4 bg-gradient-soft">
+    <section ref={ref} className="py-20 px-4 bg-gradient-soft">
       <div className="container mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16 space-y-6">
@@ -184,4 +185,4 @@ export function FeaturesSection() {
       </div>
     </section>
   );
-}
+});

@@ -6,7 +6,6 @@ export function Footer() {
     { name: "Feedback", href: "#feedback" },
     { name: "AI Assistant", href: "#ai-assistant" },
     { name: "Community", href: "#community" },
-    { name: "Support", href: "#support" }
   ];
 
   const socialLinks = [

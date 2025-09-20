@@ -92,7 +92,7 @@ const DashboardOverview = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome Section */}
-      <div className="bg-gradient-primary rounded-3xl p-6 text-primary-foreground">
+      <div className="bg-gradient-primary rounded-3xl p-12 text-primary-foreground">
         <h1 className="text-2xl font-bold mb-2">Welcome back, Rajesh! 🌾</h1>
         <p className="text-primary-foreground/90">
           Fresh produce from 45+ verified farmers is available today. Check out the seasonal specials!

@@ -116,13 +116,13 @@ const DashboardLayout = ({ children }) => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
+                <Button variant="ghost" className="flex items-center gap-3 hover:bg-primary/10 transition-all duration-300 hover:shadow-soft p-2 rounded-2xl">
+                  <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center shadow-glow hover:shadow-2xl transition-all duration-300 hover:scale-105">
                     <User className="w-4 h-4 text-primary-foreground" />
                   </div>
                   <div className="text-left">
-                    <div className="font-medium">Rajesh Kumar</div>
-                    <Badge variant="secondary" className="text-xs">Retail Buyer</Badge>
+                    <div className="font--semibold text-foreground">Ram Pal</div>
+                    <Badge variant="secondary" className="text-xs bg-gradient-accent text-accent-foreground">Retail Buyer</Badge>
                   </div>
                 </Button>
               </DropdownMenuTrigger>

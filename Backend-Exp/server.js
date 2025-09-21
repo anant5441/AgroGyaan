@@ -3,8 +3,35 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/database.js";
+import authRoutes from "./routes/auth.js";
+import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
+import userRoutes from "./routes/users.js";
+import cropListingRoutes from "./routes/cropListings.js";
+
+// Import controllers
+import {
+  getUserById,
+  updateUser,
+  deleteUser
+} from "./controllers/userController.js";
+
+import {
+  getCropListings,
+  getCropListingById,
+  createCropListing,
+  updateCropListing,
+  deleteCropListing
+} from "./controllers/cropListingController.js";
 
 dotenv.config();
+
+console.log("🚀 Starting AgroGyaan Backend Server...");
+
+// Check if JWT_SECRET is set
+if (!process.env.JWT_SECRET) {
+    console.error("FATAL ERROR: JWT_SECRET is not defined.");
+    process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -14,65 +41,96 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB using the imported function
-connectDB();
+// Request logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+});
 
-// Routes for testing
+// ==================== ROUTES ====================
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: '✅ OK', 
+    database: mongoose.connection.readyState === 1 ? '✅ Connected' : '❌ Disconnected',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Test route
 app.get('/api/test', (req, res) => {
-    res.json({ message: 'API is working!' });
+  res.json({ 
+    message: '✅ API is working!',
+    version: '1.0.0'
+  });
 });
 
-// Create a new user
-// Update your POST /api/users route
-app.post('/api/users', async (req, res) => {
-    try {
-        console.log('Received data:', req.body); // Add this for debugging
-        
-        const User = (await import('./models/User.js')).default;
-        const user = new User(req.body);
-        const savedUser = await user.save();
-        res.status(201).json(savedUser);
-    } catch (error) {
-        console.error('Error creating user:', error); // Add this for debugging
-        res.status(400).json({ error: error.message });
-    }
-});
+// Auth routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/crop-listings", cropListingRoutes);
 
-// Get all users
-app.get('/api/users', async (req, res) => {
-    try {
-        const User = (await import('./models/User.js')).default;
-        const users = await User.find();
-        res.json(users);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+// ==================== USER ROUTES ====================
 
-// Create a crop listing
-app.post('/api/crop-listings', async (req, res) => {
-    try {
-        const CropListing = (await import('./models/CropListing.js')).default;
-        const cropListing = new CropListing(req.body);
-        const savedCropListing = await cropListing.save();
-        res.status(201).json(savedCropListing);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
+
+// Get user by ID
+app.get('/api/users/:id', getUserById);
+
+
+// Update user by ID
+app.put('/api/users/:id', updateUser);
+
+// Delete user by ID
+app.delete('/api/users/:id', deleteUser);
+
+// ==================== CROP LISTING ROUTES ====================
 
 // Get all crop listings
-app.get('/api/crop-listings', async (req, res) => {
-    try {
-        const CropListing = (await import('./models/CropListing.js')).default;
-        const cropListings = await CropListing.find().populate('farmer_id');
-        res.json(cropListings);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+app.get('/api/crop-listings', getCropListings);
+
+// Get crop listing by ID
+app.get('/api/crop-listings/:id', getCropListingById);
+
+// Create a crop listing
+app.post('/api/crop-listings', createCropListing);
+
+// Update crop listing by ID
+app.put('/api/crop-listings/:id', updateCropListing);
+
+// Delete crop listing by ID
+app.delete('/api/crop-listings/:id', deleteCropListing);
+
+// ==================== PROTECTED ROUTE EXAMPLE ====================
+
+app.get('/api/protected', (req, res) => {
+  res.json({ 
+    message: 'This is a protected route (add auth middleware)',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+// ==================== ERROR HANDLING MIDDLEWARE ====================
+
+// 404 Handler - MUST be after all routes
+app.use(notFound);
+
+// Error Handler - MUST be the last middleware
+app.use(errorHandler);
+
+// ==================== SERVER START ====================
+
+// Connect to MongoDB and start server
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`✅ Server is running on port ${PORT}`);
+    console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`🔗 API test: http://localhost:${PORT}/api/test`);
+    console.log(`👥 Users API: http://localhost:${PORT}/api/users`);
+    console.log(`🌾 Crop listings: http://localhost:5000/api/crop-listings`);
+  });
+}).catch((error) => {
+  console.error("❌ Database connection failed", error);
+  process.exit(1);
 });

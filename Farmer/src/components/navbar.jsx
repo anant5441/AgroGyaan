@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Bell, MessageCircle, Menu, X, Globe, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, MessageCircle, Menu, X, Globe, ChevronDown,User,LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
 import {
@@ -7,16 +7,44 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import {Link} from "react-router-dom";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState(null);
+
+  useEffect(()=>{
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const user = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if(token && user){
+      setIsLoggedIn(true);
+      setUserData(JSON.parse(user));
+    }else{
+      setIsLoggedIn(false);
+      setUserData(null);
+    }
+  },[]);
+
+
+
+  const handleLogout = () => {
+  localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    setIsLoggedIn(false);
+    setUserData(null);
+    // Redirect to home page
+    window.location.href = '/';
+};
 
   const navLinks = [
     { name: "Interactive Crop Calendar", href: "/calendar" },
     { name: "Feedback", href: "#feedback" },
-    { name: "Login/Signup", href: "/login" }
+    // { name: "Login/Signup", href: "/login" }
   ];
 
   const languages = [
@@ -50,6 +78,51 @@ export function Navbar() {
                 {link.name}
               </a>
             ))}
+            {isLoggedIn ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    <span className="text-sm">Profile</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="flex items-center justify-start px-2 py-1.5 text-sm">
+                    <div className="flex flex-col space-y-1">
+                      <p className="font-medium">{userData?.name}</p>
+                      <p className="text-xs text-muted-foreground">{userData?.email}</p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="w-full cursor-pointer">
+                      View Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings" className="w-full cursor-pointer">
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link
+                to="/login"
+                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                Login/Signup
+              </Link>
+            )}
           </div>
 
           {/* Right Section */}
@@ -112,7 +185,46 @@ export function Navbar() {
                 >
                   {link.name}
                 </a>
+                
               ))}
+
+              {isLoggedIn ? (
+                <>
+                  <Link
+                    to="/profile"
+                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  <Link
+                    to="/settings"
+                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsMenuOpen(false);
+                    }}
+                    className="text-sm font-medium text-destructive hover:text-destructive/80 transition-colors py-2 text-left"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Login/Signup
+                </Link>
+              )}
+
+              
               <div className="pt-2 border-t">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

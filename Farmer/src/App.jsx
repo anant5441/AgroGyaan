@@ -16,6 +16,7 @@ import { FeaturesPage } from "./pages/FeaturesPage";
 import  CropPrediction from "./pages/CropPrediction";
 import  NPKPrediction from "./pages/NPKPrediction";
 import  SimplePrediction from "./pages/SimplePrediction";
+import Profile from "./pages/Profile";
 
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
         <Navbar/>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/profile" element={<Profile/>}/>
             <Route path="/login" element={<Login />} />
             <Route path="/calendar" element={< CropCalendar/>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

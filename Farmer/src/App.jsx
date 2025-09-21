@@ -13,6 +13,10 @@ import DiseaseClassifier from "./pages/DiseaseClassifier";
 import { Navbar } from "./components/navbar";
 import { MarketPriceDashboard } from "./pages/MarketPriceDashboard";
 import { FeaturesPage } from "./pages/FeaturesPage";
+import  CropPrediction from "./pages/CropPrediction";
+import  NPKPrediction from "./pages/NPKPrediction";
+import  SimplePrediction from "./pages/SimplePrediction";
+
 
 const queryClient = new QueryClient();
 
@@ -34,6 +38,9 @@ const App = () => (
             <Route path="/diseaseclassifier" element={<DiseaseClassifier />} />
             <Route path="/pricedashboard" element={<MarketPriceDashboard />} />
             <Route path="/features" element={<FeaturesPage />} />
+            <Route path="/crop-prediction" element={<CropPrediction />} />
+            <Route path="/npk-prediction" element={<NPKPrediction />} />
+            <Route path="/simple-prediction" element={<SimplePrediction />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

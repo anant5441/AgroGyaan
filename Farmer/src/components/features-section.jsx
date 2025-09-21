@@ -22,7 +22,8 @@ const features = [
     icon: Sprout,
     title: "Crop Recommendation",
     description: "AI-powered suggestions for optimal crop selection based on soil, climate, and market conditions.",
-    category: "AI Insights"
+    category: "AI Insights",
+    path: "/crop-prediction"
   },
   {
     icon: TrendingUp,

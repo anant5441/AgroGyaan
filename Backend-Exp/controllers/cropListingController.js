@@ -1,0 +1,100 @@
+import CropListing from "../models/CropListing.js";
+
+// Get all crop listings
+export const getCropListings = async (req, res, next) => {
+  try {
+    const cropListings = await CropListing.find()
+      .populate('farmer_id', 'name email phone')
+      .sort({ createdAt: -1 });
+    
+    res.json(cropListings);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get crop listing by ID
+export const getCropListingById = async (req, res, next) => {
+  try {
+    const cropListing = await CropListing.findById(req.params.id)
+      .populate('farmer_id', 'name email phone');
+    
+    if (!cropListing) {
+      const error = new Error('Crop listing not found');
+      error.statusCode = 404;
+      error.code = 'CROP_LISTING_NOT_FOUND';
+      throw error;
+    }
+    
+    res.json(cropListing);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Create a crop listing
+export const createCropListing = async (req, res, next) => {
+  try {
+    const cropListing = new CropListing(req.body);
+    const savedCropListing = await cropListing.save();
+    
+    await savedCropListing.populate('farmer_id', 'name email phone');
+    
+    res.status(201).json(savedCropListing);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update crop listing by ID
+export const updateCropListing = async (req, res, next) => {
+  try {
+    const cropListing = await CropListing.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { 
+        new: true, 
+        runValidators: true 
+      }
+    ).populate('farmer_id', 'name email phone');
+    
+    if (!cropListing) {
+      const error = new Error('Crop listing not found');
+      error.statusCode = 404;
+      error.code = 'CROP_LISTING_NOT_FOUND';
+      throw error;
+    }
+    
+    res.json({
+      message: 'Crop listing updated successfully',
+      cropListing
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete crop listing by ID
+export const deleteCropListing = async (req, res, next) => {
+  try {
+    const cropListing = await CropListing.findByIdAndDelete(req.params.id);
+    
+    if (!cropListing) {
+      const error = new Error('Crop listing not found');
+      error.statusCode = 404;
+      error.code = 'CROP_LISTING_NOT_FOUND';
+      throw error;
+    }
+    
+    res.json({
+      message: 'Crop listing deleted successfully',
+      cropListing: {
+        id: cropListing._id,
+        crop_name: cropListing.crop_name,
+        farmer_id: cropListing.farmer_id
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

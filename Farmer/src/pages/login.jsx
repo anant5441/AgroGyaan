@@ -619,7 +619,7 @@ const AuthPage = () => {
                           value={signupData.email}
                           onChange={(e) => handleSignupInputChange('email', e.target.value)}
                           className="pl-10 focus:ring-green-500 focus:border-green-500 dark:focus:ring-green-600 dark:focus:border-green-600 transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
-                          required
+                          // required
                           disabled={isLoading}
                         />
                       </div>
@@ -723,7 +723,7 @@ const AuthPage = () => {
                     <Button 
                       type="submit" 
                       className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium py-3 text-base rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105"
-                      disabled={!signupData.role || !signupData.name || !signupData.email || !signupData.phone || !signupData.password || !signupData.confirmPassword || isLoading}
+                      disabled={!signupData.role || !signupData.name || !signupData.phone || !signupData.password || !signupData.confirmPassword || isLoading}
                     >
                       {isLoading ? (
                         <>

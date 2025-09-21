@@ -5,30 +5,95 @@ import User from "../models/User.js";
 // REGISTER
 export const register = async (req, res) => {
   try {
-    const { name, email, phone, password, role } = req.body;
+    const { name, phone, password, role, email } = req.body;
 
-    // check existing user by email or phone
-    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
-    if (existingUser) {
-      return res.status(400).json({ msg: "User already exists with this email or phone" });
+    // Validation - Check required fields
+    if (!name || !phone || !password || !role) {
+      return res.status(400).json({ 
+        success: false,
+        code: 'MISSING_REQUIRED_FIELDS',
+        msg: "Name, phone, password, and role are required fields" 
+      });
     }
 
-    // hash password
+    // Validate phone number format (basic validation)
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_PHONE',
+        msg: "Phone number must be 10 digits"
+      });
+    }
+
+    // Check if user already exists with same phone AND role
+    const existingUser = await User.findOne({ 
+      phone: phone,
+      role: role 
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false,
+        code: 'PHONE_ROLE_EXISTS',
+        msg: "User already exists with this phone number and role" 
+      });
+    }
+
+    // If email is provided, check if it's already used for the same role
+    if (email) {
+      const emailExists = await User.findOne({ 
+        email: email,
+        role: role 
+      });
+      
+      if (emailExists) {
+        return res.status(400).json({ 
+          success: false,
+          code: 'EMAIL_ROLE_EXISTS',
+          msg: "Email already exists for this role" 
+        });
+      }
+    }
+
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = new User({
+    // Create user (email is optional)
+    const userData = {
       name,
-      email,
       phone,
       password_hash: hashedPassword,
       role
-    });
+    };
+    
+    // Only add email if provided
+    if (email) {
+      userData.email = email;
+    }
 
+    const user = new User(userData);
     await user.save();
-    res.json({ msg: "User registered successfully" });
+    
+    res.status(201).json({ 
+      success: true,
+      msg: "User registered successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Registration error:", err);
+    res.status(500).json({ 
+      success: false,
+      code: 'SERVER_ERROR',
+      error: err.message 
+    });
   }
 };
 
@@ -45,34 +110,38 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // First check if user exists with this email/phone (regardless of role)
-    const userExists = await User.findOne({
-      $or: [{ email: identifier }, { phone: identifier }]
-    });
-
-    if (!userExists) {
+    // Determine if identifier is phone or email
+    const isPhone = /^[0-9]{10}$/.test(identifier);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    
+    if (!isPhone && !isEmail) {
       return res.status(400).json({
         success: false,
-        code: 'USER_NOT_FOUND',
-        msg: "User not found with this email or phone"
+        code: 'INVALID_IDENTIFIER',
+        msg: "Please provide a valid phone number or email address"
       });
     }
 
-    // Now check if user has the correct role
-    const user = await User.findOne({
-      $or: [{ email: identifier }, { phone: identifier }],
-      role
-    });
+    // Build query based on identifier type
+    let query;
+    if (isPhone) {
+      query = { phone: identifier, role };
+    } else {
+      query = { email: identifier, role };
+    }
+
+    // Find user with correct role
+    const user = await User.findOne(query);
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        code: 'ROLE_MISMATCH',
-        msg: "Role mismatch. Please check your selected role and try again."
+        code: 'INVALID_CREDENTIALS',
+        msg: "Invalid credentials or role mismatch"
       });
     }
 
-    // compare password
+    // Compare password
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(400).json({
@@ -82,7 +151,7 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // create token
+    // Create token
     const token = jwt.sign(
       { 
         id: user._id, 

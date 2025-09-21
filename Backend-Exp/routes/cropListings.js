@@ -1,11 +1,5 @@
 import express from "express";
-import {
-  getCropListings,
-  getCropListingById,
-  createCropListing,
-  updateCropListing,
-  deleteCropListing
-} from "../controllers/cropListingController.js";
+import { getCropListings, getCropListingById, createCropListing, updateCropListing, deleteCropListing } from "../controllers/cropListingController.js";
 
 const router = express.Router();
 

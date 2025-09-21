@@ -1,15 +1,5 @@
 import User from "../models/User.js";
 
-// Get all users
-export const getUsers = async (req, res, next) => {
-  try {
-    const users = await User.find().select('-password_hash');
-    res.json(users);
-  } catch (error) {
-    next(error);
-  }
-};
-
 // Get user by ID
 export const getUserById = async (req, res, next) => {
   try {
@@ -21,34 +11,8 @@ export const getUserById = async (req, res, next) => {
       error.code = 'USER_NOT_FOUND';
       throw error;
     }
-    
-    res.json(user);
-  } catch (error) {
-    next(error);
-  }
-};
 
-// Create a new user
-export const createUser = async (req, res, next) => {
-  try {
-    const existingUser = await User.findOne({
-      $or: [{ email: req.body.email }, { phone: req.body.phone }]
-    });
-    
-    if (existingUser) {
-      const error = new Error('User already exists with this email or phone');
-      error.statusCode = 400;
-      error.code = 'USER_ALREADY_EXISTS';
-      throw error;
-    }
-    
-    const user = new User(req.body);
-    const savedUser = await user.save();
-    
-    const userResponse = savedUser.toObject();
-    delete userResponse.password_hash;
-    
-    res.status(201).json(userResponse);
+    res.json(user);
   } catch (error) {
     next(error);
   }
@@ -57,13 +21,17 @@ export const createUser = async (req, res, next) => {
 // Update user by ID
 export const updateUser = async (req, res, next) => {
   try {
-    if (req.body.password_hash) {
-      delete req.body.password_hash;
+    const { password, ...updateData } = req.body;
+    
+    // If password is being updated, hash it
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      updateData.password_hash = await bcrypt.hash(password, salt);
     }
     
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { 
         new: true, 
         runValidators: true 

@@ -23,19 +23,23 @@ const features = [
     title: "Crop Recommendation",
     description: "AI-powered suggestions for optimal crop selection based on soil, climate, and market conditions.",
     category: "AI Insights",
+    role:"farmer",
     path: "/crop-prediction"
   },
   {
-    icon: TrendingUp,
-    title: "Yield Prediction",
-    description: "Predict your harvest yield with advanced machine learning algorithms and historical data analysis.",
-    category: "AI Insights"
+    icon: BarChart3,
+    title: "Market Price Dashboard",
+    description: "Real-time mandi prices and market trends to help you make informed selling decisions.",
+    category: "Analytics",
+    path: "/pricedashboard",
+    role:"farmer",
   },
   {
     icon: Shield,
     title: "Disease Prediction",
     description: "Early detection and prevention of crop diseases using computer vision and expert knowledge.",
     category: "Protection",
+    role:"farmer",
     path: "/diseaseclassifier"
   },
   {
@@ -43,57 +47,65 @@ const features = [
     title: "Organic Farming Tips",
     description: "Comprehensive educational content and best practices for sustainable organic farming.",
     category: "Education",
+    role:"farmer",
     path: "/organic"
   },
   {
     icon: Users,
     title: "Farmer Network",
     description: "Connect with fellow farmers, share experiences, and learn from the agricultural community.",
-    category: "Community"
+    category: "Community",
+    role:"farmer",
   },
   {
     icon: CloudSun,
     title: "Weather Check",
     description: "Real-time weather updates and forecasts tailored specifically for agricultural planning.",
-    category: "Monitoring"
+    category: "Monitoring",
+    role:"farmer",
   },
   {
     icon: ShoppingCart,
     title: "Farmer's Crop Listings",
     description: "Sell your produce directly to buyers with wholesale availability options.",
     category: "Marketplace",
-    badge: "Wholesale Available"
+    badge: "Wholesale Available",
+    role:"farmer",
   },
   {
     icon: Tractor,
     title: "Equipment Seller Listings",
     description: "Browse and sell agricultural equipment, tools, and machinery in our dedicated marketplace.",
-    category: "Marketplace"
+    category: "Marketplace",
+    role:"supplier",
   },
   {
     icon: UserCheck,
     title: "Buyer Listings",
     description: "Connect with verified buyers looking for quality agricultural products and services.",
-    category: "Marketplace"
+    category: "Marketplace",
+    role:"buyer",
   },
   {
-    icon: BarChart3,
-    title: "Market Price Dashboard",
-    description: "Real-time mandi prices and market trends to help you make informed selling decisions.",
-    category: "Analytics",
-    path: "/pricedashboard"
+    icon: TrendingUp,
+    title: "Yield Prediction",
+    description: "Predict your harvest yield with advanced machine learning algorithms and historical data analysis.",
+    category: "AI Insights",
+    role:"farmer",
   },
   {
     icon: MessageSquare,
     title: "Farmers Community Forum",
     description: "Participate in discussions, ask questions, and share knowledge with the farming community.",
-    category: "Community"
+    category: "Community",
+    role:"farmer",
   },
   {
     icon: Settings,
     title: "Renting Farming Equipment",
     description: "Rent or lease farming equipment and machinery when you need it, where you need it.",
-    category: "Services"
+    category: "Services",
+    role:"farmer",
   }
 ];
 
@@ -111,6 +123,13 @@ const categoryColors = {
 export const FeaturesSection = forwardRef((props, ref) => {
 
   const navigate = useNavigate();
+  // Get the current user from sessionStorage
+  const user = JSON.parse(sessionStorage.getItem("user")) || {};
+  const userRole = user.role; // default fallback
+
+  // Filter features by role
+  const filteredFeatures = features.filter(f => f.role === userRole);
+
   return (
     <section ref={ref} className="py-20 px-4 bg-gradient-soft">
       <div className="container mx-auto">

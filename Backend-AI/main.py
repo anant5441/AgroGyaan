@@ -11,7 +11,7 @@ app = FastAPI(title="AI Farming Assistant API")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5175"],  # replace with your frontend URL
+    allow_origins=["*"],  # replace with your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

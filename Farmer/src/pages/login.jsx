@@ -12,19 +12,19 @@ import agricultureImage from '@/assets/agri-login-illustration.jpg';
 // Custom Toast Component with better styling
 const Toast = ({ message, description, variant = "default", onClose }) => {
   const bgColor = variant === "destructive" 
-    ? "bg-red-50 border-red-200" 
-    : "bg-green-50 border-green-200";
+    ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" 
+    : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800";
   const textColor = variant === "destructive" 
-    ? "text-red-800" 
-    : "text-green-800";
+    ? "text-red-800 dark:text-red-200" 
+    : "text-green-800 dark:text-green-200";
   const iconColor = variant === "destructive" 
-    ? "text-red-400" 
-    : "text-green-400";
+    ? "text-red-400 dark:text-red-300" 
+    : "text-green-400 dark:text-green-300";
   
   const Icon = variant === "destructive" ? X : Leaf;
   
   return (
-    <div className={`right-6 z-50 border rounded-lg p-4 shadow-lg max-w-sm ${bgColor} animate-in slide-in-from-right-full duration-300 flex items-start gap-3`}>
+    <div className={`fixed top-6 right-6 z-50 border rounded-lg p-4 shadow-lg max-w-sm ${bgColor} animate-in slide-in-from-right-full duration-300 flex items-start gap-3`}>
       <div className={`mt-0.5 ${iconColor}`}>
         <Icon size={18} />
       </div>
@@ -36,7 +36,7 @@ const Toast = ({ message, description, variant = "default", onClose }) => {
       </div>
       <button
         onClick={onClose}
-        className="text-gray-400 hover:text-gray-600 transition-colors"
+        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
         aria-label="Close notification"
       >
         <X size={16} />
@@ -351,7 +351,7 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 dark:from-green-900 dark:to-brown  -800 flex items-center justify-center p-4">
       {ToastComponent}
       
       <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 items-center">
@@ -364,14 +364,14 @@ const AuthPage = () => {
               alt="Agricultural illustration"
               className="w-full max-w-md rounded-3xl shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 to-amber-400/10 rounded-3xl"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 to-amber-400/10 dark:from-green-600/10 dark:to-amber-600/10 rounded-3xl"></div>
           </div>
           <div className="text-center space-y-3">
-            <h1 className="text-4xl font-bold text-gray-800 flex items-center justify-center gap-2">
-              <Leaf className="h-8 w-8 text-green-600" />
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2">
+              <Leaf className="h-8 w-8 text-green-600 dark:text-green-500" />
               AGROGYAAN
             </h1>
-            <p className="text-xl text-gray-600 max-w-md">
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-md">
               Connecting farmers and buyers through technology for a sustainable future
             </p>
           </div>
@@ -379,48 +379,48 @@ const AuthPage = () => {
 
         {/* Right Side - Auth Form */}
         <div className="w-full max-w-md mx-auto">
-          <Card className="p-8 shadow-lg bg-white/95 backdrop-blur-sm border border-gray-200/50 hover:shadow-xl transition-all duration-300">
+          <Card className="p-8 shadow-lg bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300">
             
             {/* Mobile Header for small screens */}
             <div className="lg:hidden text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-800 flex items-center justify-center gap-2">
-                <Leaf className="h-6 w-6 text-green-600" />
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2">
+                <Leaf className="h-6 w-6 text-green-600 dark:text-green-500" />
                 AGROGYAAN
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-gray-600 dark:text-gray-300 mt-2">
                 {isLogin ? 'Welcome back!' : 'Create an account'}
               </p>
             </div>
 
             <div className="space-y-6">
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-800">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
                   {isLogin ? 'Welcome Back' : 'Create Account'}
                 </h2>
-                <p className="text-gray-600 mt-2">
+                <p className="text-gray-600 dark:text-gray-300 mt-2">
                   {isLogin ? 'Sign in to your account' : 'Join our agricultural community'}
                 </p>
               </div>
 
               {/* Role Selection */}
               <div className="space-y-3">
-                <Label className="text-sm font-medium text-gray-700">Select Your Role</Label>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Select Your Role</Label>
                 <RadioGroup 
                   value={isLogin ? userRole : signupData.role} 
                   onValueChange={isLogin ? setUserRole : (value) => handleSignupInputChange('role', value)} 
                   className="flex gap-6"
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="buyer" id="buyer" />
-                    <Label htmlFor="buyer" className="cursor-pointer text-gray-700">Buyer</Label>
+                    <RadioGroupItem value="buyer" id="buyer" className="text-green-600 dark:text-green-500" />
+                    <Label htmlFor="buyer" className="cursor-pointer text-gray-700 dark:text-gray-300">Buyer</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="farmer" id="farmer" />
-                    <Label htmlFor="farmer" className="cursor-pointer text-gray-700">Farmer</Label>
+                    <RadioGroupItem value="farmer" id="farmer" className="text-green-600 dark:text-green-500" />
+                    <Label htmlFor="farmer" className="cursor-pointer text-gray-700 dark:text-gray-300">Farmer</Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="supplier" id="supplier" />
-                    <Label htmlFor="supplier" className="cursor-pointer text-gray-700">Supplier</Label>
+                    <RadioGroupItem value="supplier" id="supplier" className="text-green-600 dark:text-green-500" />
+                    <Label htmlFor="supplier" className="cursor-pointer text-gray-700 dark:text-gray-300">Supplier</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -430,15 +430,15 @@ const AuthPage = () => {
                 <>
                   {/* Login Method Toggle */}
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium text-gray-700">Login Method</Label>
-                    <div className="flex rounded-lg bg-gray-100 p-1">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Login Method</Label>
+                    <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1">
                       <button
                         type="button"
                         onClick={() => setLoginMethod('email')}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
                           loginMethod === 'email' 
                             ? 'bg-green-600 text-white shadow-sm' 
-                            : 'text-gray-500 hover:text-gray-700'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                         }`}
                       >
                         <Mail className="h-4 w-4" />
@@ -450,7 +450,7 @@ const AuthPage = () => {
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
                           loginMethod === 'mobile' 
                             ? 'bg-green-600 text-white shadow-sm' 
-                            : 'text-gray-500 hover:text-gray-700'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                         }`}
                       >
                         <Phone className="h-4 w-4" />
@@ -462,15 +462,15 @@ const AuthPage = () => {
                   <form onSubmit={handleLogin} className="space-y-4">
                     {/* Email/Mobile Input */}
                     <div className="space-y-2">
-                      <Label htmlFor="identifier" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="identifier" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {loginMethod === 'email' ? 'Email Address' : 'Mobile Number'}
                       </Label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                           {loginMethod === 'email' ? (
-                            <Mail className="h-4 w-4 text-gray-400" />
+                            <Mail className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                           ) : (
-                            <Phone className="h-4 w-4 text-gray-400" />
+                            <Phone className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                           )}
                         </div>
                         <Input
@@ -479,7 +479,7 @@ const AuthPage = () => {
                           placeholder={loginMethod === 'email' ? 'Enter your email' : 'Enter your mobile number'}
                           value={loginData.identifier}
                           onChange={(e) => handleLoginInputChange('identifier', e.target.value)}
-                          className="pl-10 focus:ring-green-500 focus:border-green-500 transition-all duration-200 hover:border-green-400"
+                          className="pl-10 focus:ring-green-500 focus:border-green-500 dark:focus:ring-green-600 dark:focus:border-green-600 transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                           required
                           disabled={isLoading}
                         />
@@ -488,10 +488,10 @@ const AuthPage = () => {
 
                     {/* Password Input */}
                     <div className="space-y-2">
-                      <Label htmlFor="password" className="text-sm font-medium text-gray-700">Password</Label>
+                      <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">Password</Label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Lock className="h-4 w-4 text-gray-400" />
+                          <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         </div>
                         <Input
                           id="password"
@@ -499,14 +499,14 @@ const AuthPage = () => {
                           placeholder="Enter your password"
                           value={loginData.password}
                           onChange={(e) => handleLoginInputChange('password', e.target.value)}
-                          className="pl-10 pr-10 focus:ring-green-500 focus:border-green-500 transition-all duration-200 hover:border-green-400"
+                          className="pl-10 pr-10 focus:ring-green-500 focus:border-green-500 dark:focus:ring-green-600 dark:focus:border-green-600 transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                           required
                           disabled={isLoading}
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors duration-200"
                           disabled={isLoading}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -521,15 +521,16 @@ const AuthPage = () => {
                           id="remember" 
                           checked={rememberMe}
                           onCheckedChange={(checked) => setRememberMe(checked === true)}
+                          className="data-[state=checked]:bg-green-600 dark:data-[state=checked]:bg-green-500"
                           disabled={isLoading}
                         />
-                        <Label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer">
+                        <Label htmlFor="remember" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
                           Remember me
                         </Label>
                       </div>
                       <button
                         type="button"
-                        className="text-sm text-green-600 hover:text-green-700 transition-colors duration-200 font-medium"
+                        className="text-sm text-green-600 dark:text-green-500 hover:text-green-700 dark:hover:text-green-400 transition-colors duration-200 font-medium"
                         disabled={isLoading}
                       >
                         Forgot Password?
@@ -555,11 +556,11 @@ const AuthPage = () => {
 
                   {/* Sign Up Link */}
                   <div className="text-center">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       Don't have an account?{' '}
                       <button 
                         onClick={toggleAuthMode}
-                        className="text-green-600 hover:text-green-700 font-medium transition-colors duration-200"
+                        className="text-green-600 dark:text-green-500 hover:text-green-700 dark:hover:text-green-400 font-medium transition-colors duration-200"
                         disabled={isLoading}
                       >
                         Sign up here
@@ -572,7 +573,7 @@ const AuthPage = () => {
                 <>
                   <button
                     onClick={toggleAuthMode}
-                    className="flex items-center text-sm text-green-600 hover:text-green-700 transition-colors duration-200 font-medium"
+                    className="flex items-center text-sm text-green-600 dark:text-green-500 hover:text-green-700 dark:hover:text-green-400 transition-colors duration-200 font-medium"
                     disabled={isLoading}
                   >
                     <ArrowLeft className="h-4 w-4 mr-1" />
@@ -582,12 +583,12 @@ const AuthPage = () => {
                   <form onSubmit={handleSignup} className="space-y-4">
                     {/* Name Input */}
                     <div className="space-y-2">
-                      <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="name" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Full Name
                       </Label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <User className="h-4 w-4 text-gray-400" />
+                          <User className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         </div>
                         <Input
                           id="name"
@@ -595,7 +596,7 @@ const AuthPage = () => {
                           placeholder="Enter your full name"
                           value={signupData.name}
                           onChange={(e) => handleSignupInputChange('name', e.target.value)}
-                          className="pl-10 focus:ring-green-500 focus:border-green-500 transition-all duration-200 hover:border-green-400"
+                          className="pl-10 focus:ring-green-500 focus:border-green-500 dark:focus:ring-green-600 dark:focus:border-green-600 transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                           required
                           disabled={isLoading}
                         />
@@ -604,12 +605,12 @@ const AuthPage = () => {
 
                     {/* Email Input */}
                     <div className="space-y-2">
-                      <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Email Address
                       </Label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Mail className="h-4 w-4 text-gray-400" />
+                          <Mail className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         </div>
                         <Input
                           id="email"
@@ -617,7 +618,7 @@ const AuthPage = () => {
                           placeholder="Enter your email"
                           value={signupData.email}
                           onChange={(e) => handleSignupInputChange('email', e.target.value)}
-                          className="pl-10 focus:ring-green-500 focus:border-green-500 transition-all duration-200 hover:border-green-400"
+                          className="pl-10 focus:ring-green-500 focus:border-green-500 dark:focus:ring-green-600 dark:focus:border-green-600 transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                           required
                           disabled={isLoading}
                         />
@@ -626,12 +627,12 @@ const AuthPage = () => {
 
                     {/* Phone Input */}
                     <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+                      <Label htmlFor="phone" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Phone Number
                       </Label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Phone className="h-4 w-4 text-gray-400" />
+                          <Phone className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         </div>
                         <Input
                           id="phone"
@@ -639,7 +640,7 @@ const AuthPage = () => {
                           placeholder="Enter your phone number"
                           value={signupData.phone}
                           onChange={(e) => handleSignupInputChange('phone', e.target.value)}
-                          className="pl-10 focus:ring-green-500 focus:border-green-500 transition-all duration-200 hover:border-green-400"
+                          className="pl-10 focus:ring-green-500 focus:border-green-500 dark:focus:ring-green-600 dark:focus:border-green-600 transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                           required
                           disabled={isLoading}
                         />
@@ -648,10 +649,10 @@ const AuthPage = () => {
 
                     {/* Password Input */}
                     <div className="space-y-2">
-                      <Label htmlFor="signup-password" className="text-sm font-medium text-gray-700">Password</Label>
+                      <Label htmlFor="signup-password" className="text-sm font-medium text-gray-700 dark:text-gray-300">Password</Label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Lock className="h-4 w-4 text-gray-400" />
+                          <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         </div>
                         <Input
                           id="signup-password"
@@ -659,14 +660,14 @@ const AuthPage = () => {
                           placeholder="Create a password"
                           value={signupData.password}
                           onChange={(e) => handleSignupInputChange('password', e.target.value)}
-                          className="pl-10 pr-10 focus:ring-green-500 focus:border-green-500 transition-all duration-200 hover:border-green-400"
+                          className="pl-10 pr-10 focus:ring-green-500 focus:border-green-500 dark:focus:ring-green-600 dark:focus:border-green-600 transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                           required
                           disabled={isLoading}
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors duration-200"
                           disabled={isLoading}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -676,10 +677,10 @@ const AuthPage = () => {
 
                     {/* Confirm Password Input */}
                     <div className="space-y-2">
-                      <Label htmlFor="confirm-password" className="text-sm font-medium text-gray-700">Confirm Password</Label>
+                      <Label htmlFor="confirm-password" className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirm Password</Label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Lock className="h-4 w-4 text-gray-400" />
+                          <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         </div>
                         <Input
                           id="confirm-password"
@@ -687,14 +688,14 @@ const AuthPage = () => {
                           placeholder="Confirm your password"
                           value={signupData.confirmPassword}
                           onChange={(e) => handleSignupInputChange('confirmPassword', e.target.value)}
-                          className="pl-10 pr-10 focus:ring-green-500 focus:border-green-500 transition-all duration-200 hover:border-green-400"
+                          className="pl-10 pr-10 focus:ring-green-500 focus:border-green-500 dark:focus:ring-green-600 dark:focus:border-green-600 transition-all duration-200 hover:border-green-400 dark:hover:border-green-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                           required
                           disabled={isLoading}
                         />
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors duration-200"
                           disabled={isLoading}
                         >
                           {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -709,9 +710,10 @@ const AuthPage = () => {
                           id="remember-signup" 
                           checked={rememberMe}
                           onCheckedChange={(checked) => setRememberMe(checked === true)}
+                          className="data-[state=checked]:bg-green-600 dark:data-[state=checked]:bg-green-500"
                           disabled={isLoading}
                         />
-                        <Label htmlFor="remember-signup" className="text-sm text-gray-600 cursor-pointer">
+                        <Label htmlFor="remember-signup" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
                           Remember me
                         </Label>
                       </div>
@@ -736,11 +738,11 @@ const AuthPage = () => {
 
                   {/* Login Link */}
                   <div className="text-center">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       Already have an account?{' '}
                       <button 
                         onClick={toggleAuthMode}
-                        className="text-green-600 hover:text-green-700 font-medium transition-colors duration-200"
+                        className="text-green-600 dark:text-green-500 hover:text-green-700 dark:hover:text-green-400 font-medium transition-colors duration-200"
                         disabled={isLoading}
                       >
                         Sign in here

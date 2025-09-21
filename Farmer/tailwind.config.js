@@ -19,6 +19,15 @@ export default  {
     },
     extend: {
       colors: {
+        cp: {
+      foreground: "hsl(var(--cp-foreground))",
+      accent: "hsl(var(--cp-accent))",
+    },
+    muted: {
+      cp: {
+        foreground: "hsl(var(--cp-muted-foreground))",
+      }
+    },
         farmgreen: "#CADCAE",
         farmpink:"#FEE8D9",
         border: "hsl(var(--border))",
@@ -82,10 +91,21 @@ export default  {
         "gradient-primary": "var(--gradient-primary)",
         "gradient-soft": "var(--gradient-soft)",
         "gradient-hero": "var(--gradient-hero)",
+        "cp-gradient-hero": "var(--cp-gradient-hero)", // Add this
+    "cp-gradient-card": "var(--cp-gradient-card)", // Add this
+    "cp-gradient-primary": "var(--cp-gradient-primary)", // Add this
       },
+      borderColor: {
+    cp: {
+      agro: {
+        light: "hsl(var(--cp-agro-light))",
+      }
+    }
+  },
       boxShadow: {
         card: "var(--shadow-card)",
         hover: "var(--shadow-hover)",
+        "cp-elevated": "var(--cp-shadow-elevated)",
       },
       transitionProperty: {
         smooth: "var(--transition-smooth)",

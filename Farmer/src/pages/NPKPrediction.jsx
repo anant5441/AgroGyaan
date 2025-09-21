@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { NavigationMenu as Navigation } from "@/components/ui/navigation-menu";
 //import { useToast } from "@/hooks/use-toast";
+import "@/styles/CropPrediction.css";
 
 const NPKPrediction = () => {
   const [formData, setFormData] = useState({
@@ -81,7 +82,7 @@ const NPKPrediction = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-hero">
+    <div className="min-h-screen bg-cp-gradient-hero">
       <Navigation />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -94,15 +95,15 @@ const NPKPrediction = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Options
           </Link>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Scientific Crop Analysis</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold text-cp-foreground mb-2">Scientific Crop Analysis</h1>
+          <p className="text-muted-cp-foreground">
             Enter your soil and environmental data for precise crop recommendations
           </p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Input Form */}
-          <Card className="bg-gradient-card border-agro-light shadow-card animate-slide-up">
+          <Card className="bg-cp-gradient-card border-agro-light cp-shadow-card animate-slide-up">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Leaf className="w-5 h-5 text-primary" />

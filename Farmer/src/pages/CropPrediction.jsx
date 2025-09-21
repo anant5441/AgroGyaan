@@ -6,46 +6,47 @@ import { NavigationMenu as Navigation } from "@/components/ui/navigation-menu";
 import heroImage from "@/assets/hero-agriculture.jpg";
 import npkImage from "@/assets/npk-analysis.jpg";
 import traditionalImage from "@/assets/traditional-farming.jpg";
-import "@/styles/CropPrediction.css";
+// import "@/styles/CropPrediction.css";
+import { Footer } from "react-day-picker";
 
 const CropPrediction = () => {
   return (
-    <div className="min-h-screen bg-gradient-hero">
+    <div className="min-h-screen bg-cp-gradient-hero">
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative py-20 overflow-hidden">
+      {/* <section className="relative py-20 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src={heroImage} 
             alt="Agricultural landscape" 
             className="w-full h-full object-cover opacity-20"
           />
-          <div className="absolute inset-0 bg-gradient-hero opacity-80"></div>
+          <div className="absolute inset-0 bg-cp-gradient-hero opacity-80"></div>
         </div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="animate-fade-in">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-primary rounded-full mb-6 animate-float">
-              <Sprout className="w-10 h-10 text-primary-foreground" />
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-cp-gradient-primary rounded-full mb-6 animate-float">
+              <Sprout className="w-10 h-10 text-primary-cp-foreground" />
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
+            <h1 className="text-4xl md:text-6xl font-bold text-cp-foreground mb-6">
               Smart Crop Prediction
             </h1>
-            <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
+            <p className="text-xl text-muted-cp-foreground mb-8 max-w-3xl mx-auto">
               Choose your preferred method to get AI-powered crop recommendations tailored to your farming needs
             </p>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Options Section */}
-      <section className="py-16">
+      <section className="py-16 bg-cp-gradient-hero">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             
             {/* NPK Method Card */}
-            <Card className="group hover:shadow-elevated transition-all duration-500 animate-slide-up bg-gradient-card border-agro-light">
+            <Card className="group hover:cp-shadow-elevated transition-all duration-500 animate-slide-up bg-cp-gradient-card border-cp-agro-light">
               <CardHeader className="text-center pb-6">
                 <div className="mx-auto w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors duration-300">
                   <img 
@@ -57,7 +58,7 @@ const CropPrediction = () => {
                 <CardTitle className="text-2xl text-foreground group-hover:text-primary transition-colors duration-300">
                   Scientific Analysis
                 </CardTitle>
-                <CardDescription className="text-muted-foreground">
+                <CardDescription className="text-muted-cp-foreground">
                   Advanced prediction using soil nutrients and environmental data
                 </CardDescription>
               </CardHeader>
@@ -90,7 +91,7 @@ const CropPrediction = () => {
             </Card>
 
             {/* Traditional Method Card */}
-            <Card className="group hover:shadow-elevated transition-all duration-500 animate-slide-up [animation-delay:200ms] bg-gradient-card border-agro-light">
+            <Card className="group hover:cp-shadow-elevated transition-all duration-500 animate-slide-up [animation-delay:200ms] bg-cp-gradient-card border-cp-agro-light">
               <CardHeader className="text-center pb-6">
                 <div className="mx-auto w-24 h-24 bg-accent/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-accent/20 transition-colors duration-300">
                   <img 

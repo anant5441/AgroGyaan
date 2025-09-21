@@ -83,6 +83,69 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --cp-background: 120 20% 97%;
+    --cp-foreground: 74 45% 15%;
+
+    --cp-card: 0 0% 100%;
+    --cp-card-foreground: 74 45% 15%;
+
+    --cp-popover: 0 0% 100%;
+    --cp-popover-foreground: 74 45% 15%;
+
+    --cp-primary: 74 71% 24%;
+    --cp-primary-foreground: 0 0% 100%;
+
+    --cp-secondary: 84 23% 80%;
+    --cp-secondary-foreground: 74 45% 15%;
+
+    --cp-muted: 93 31% 84%;
+    --cp-muted-foreground: 74 25% 45%;
+
+    --cp-accent: 75 35% 70%;
+    --cp-accent-foreground: 74 45% 15%;
+
+    --cp-destructive: 0 84.2% 60.2%;
+    --cp-destructive-foreground: 0 0% 100%;
+
+    --cp-border: 93 31% 84%;
+    --cp-input: 93 31% 84%;
+    --cp-ring: 74 71% 24%;
+
+    /* Custom AgroYaan colors */
+    --cp-agro-soft: 120 20% 97%;
+    --cp-agro-light: 93 31% 84%;
+    --cp-agro-primary: 74 71% 24%;
+    --cp-agro-medium: 75 35% 70%;
+    --cp-agro-fresh: 106 44% 90%;
+
+    /* Gradients */
+    --cp-gradient-hero: linear-gradient(135deg, hsl(var(--cp-agro-fresh)), hsl(var(--cp-agro-light)));
+    --cp-gradient-card: linear-gradient(145deg, hsl(var(--cp-card)), hsl(var(--cp-agro-soft)));
+    --cp-gradient-primary: linear-gradient(135deg, hsl(var(--cp-primary)), hsl(74 65% 28%));
+
+    /* Shadows */
+    --cp-shadow-soft: 0 4px 20px hsl(var(--cp-agro-primary) / 0.1);
+    --cp-shadow-card: 0 8px 32px hsl(var(--cp-agro-primary) / 0.15);
+    --cp-shadow-elevated: 0 12px 40px hsl(var(--cp-agro-primary) / 0.2);
+
+    --cp-radius: 0.5rem;
+
+    --cp-sidebar-background: 0 0% 98%;
+
+    --cp-sidebar-foreground: 240 5.3% 26.1%;
+
+    --cp-sidebar-primary: 240 5.9% 10%;
+
+    --cp-sidebar-primary-foreground: 0 0% 98%;
+
+    --cp-sidebar-accent: 240 4.8% 95.9%;
+
+    --cp-sidebar-accent-foreground: 240 5.9% 10%;
+
+    --cp-sidebar-border: 220 13% 91%;
+
+    --cp-sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {

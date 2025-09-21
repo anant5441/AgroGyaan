@@ -148,7 +148,7 @@ export const FeaturesSection = forwardRef((props, ref) => {
 
         {/* Features Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {features.map((feature, index) => {
+          {filteredFeatures.map((feature, index) => {
             const IconComponent = feature.icon;
             return (
               <Card 
@@ -188,7 +188,7 @@ export const FeaturesSection = forwardRef((props, ref) => {
           })}
         </div>
 
-        {/* CTA Section */}
+        {/* CTA Section
         <div className="text-center mt-16">
           <p className="text-lg text-muted-foreground mb-6">
             Ready to transform your farming experience?
@@ -201,7 +201,7 @@ export const FeaturesSection = forwardRef((props, ref) => {
               Learn More
             </button>
           </div>
-        </div>
+        </div> */}
       </div>
     </section>
   );

@@ -21,33 +21,53 @@ import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light" storageKey="agrogyaan-ui-theme">
-      <TooltipProvider>
-        {/* <Toaster /> */}
-        <Sonner />
-        <BrowserRouter>
-        <Navbar/>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/profile" element={<Profile/>}/>
-            <Route path="/login" element={<Login />} />
-            <Route path="/calendar" element={< CropCalendar/>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-            <Route path="/organic" element={<OrganicGuide />} />
-            <Route path="/diseaseclassifier" element={<DiseaseClassifier />} />
-            <Route path="/pricedashboard" element={<MarketPriceDashboard />} />
-            <Route path="/features" element={<FeaturesPage />} />
-            <Route path="/crop-prediction" element={<CropPrediction />} />
-            <Route path="/npk-prediction" element={<NPKPrediction />} />
-            <Route path="/simple-prediction" element={<SimplePrediction />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+import { useEffect } from "react";
+
+const App = () => {
+  // Check for token in URL on app load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const userData = urlParams.get('user');
+    
+    if (token && userData) {
+      // Store in sessionStorage/localStorage for this domain
+      sessionStorage.setItem('token', token);
+      sessionStorage.setItem('user', userData);
+      
+      // Clean up the URL
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="light" storageKey="agrogyaan-ui-theme">
+        <TooltipProvider>
+          {/* <Toaster /> */}
+          <Sonner />
+          <BrowserRouter>
+          <Navbar/>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/profile" element={<Profile/>}/>
+              <Route path="/login" element={<Login />} />
+              <Route path="/calendar" element={< CropCalendar/>} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+              <Route path="/organic" element={<OrganicGuide />} />
+              <Route path="/diseaseclassifier" element={<DiseaseClassifier />} />
+              <Route path="/pricedashboard" element={<MarketPriceDashboard />} />
+              <Route path="/features" element={<FeaturesPage />} />
+              <Route path="/crop-prediction" element={<CropPrediction />} />
+              <Route path="/npk-prediction" element={<NPKPrediction />} />
+              <Route path="/simple-prediction" element={<SimplePrediction />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

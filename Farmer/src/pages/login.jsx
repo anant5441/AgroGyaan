@@ -154,12 +154,13 @@ const AuthPage = () => {
 
       // Save token and user data from actual response
       const { token, user } = data;
-      localStorage.setItem('token', token);
-      if (rememberMe) {
-        localStorage.setItem('user', JSON.stringify(user));
-      } else {
-        sessionStorage.setItem('user', JSON.stringify(user));
-      }
+
+      // localStorage.setItem('token', token);
+      // if (rememberMe) {
+      //   localStorage.setItem('user', JSON.stringify(user));
+      // } else {
+      //   sessionStorage.setItem('user', JSON.stringify(user));
+      // }
 
       // Show success toast
       toast({
@@ -170,20 +171,27 @@ const AuthPage = () => {
       // Wait a moment for the user to see the success message
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Redirect based on role
-      switch (userRole) {
-        case 'farmer':
-          window.location.href = 'http://localhost:5173/';
-          break;
-        case 'buyer':
-          window.location.href = 'http://localhost:5174/';
-          break;
-        case 'supplier':
-          window.location.href = 'http://localhost:5175/';
-          break;
-        default:
-          window.location.href = '/';
-      }
+      // // Redirect based on role
+      // switch (userRole) {
+      //   case 'farmer':
+      //     window.location.href = 'http://localhost:5173/';
+      //     break;
+      //   case 'buyer':
+      //     window.location.href = 'http://localhost:5174/';
+      //     break;
+      //   case 'supplier':
+      //     window.location.href = 'http://localhost:5175/';
+      //     break;
+      //   default:
+      //     window.location.href = '/';
+
+      // Redirect with token in URL parameters
+  const port = getPortForRole(userRole);
+  const redirectUrl = new URL(`http://localhost:${port}/`);
+  redirectUrl.searchParams.set('token', token);
+  redirectUrl.searchParams.set('user', JSON.stringify(user));
+  
+  window.location.href = redirectUrl.toString();
 
     } catch (error) {
       console.error('Login error:', error);
@@ -213,6 +221,16 @@ const AuthPage = () => {
       setIsLoading(false);
     }
   };
+
+  const getPortForRole = (role) => {
+  switch(role) {
+    case 'farmer': return '5173';
+    case 'buyer': return '5174';
+    case 'supplier': return '5175';
+    default: return '5173';
+  }
+};
+
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -287,30 +305,38 @@ const AuthPage = () => {
 
       // Save token and user data from actual response
       const { token, user } = loginData;
-      localStorage.setItem('token', token);
-      if (rememberMe) {
-        localStorage.setItem('user', JSON.stringify(user));
-      } else {
-        sessionStorage.setItem('user', JSON.stringify(user));
-      }
+      // localStorage.setItem('token', token);
+      // if (rememberMe) {
+      //   localStorage.setItem('user', JSON.stringify(user));
+      // } else {
+      //   sessionStorage.setItem('user', JSON.stringify(user));
+      // }
 
       // Wait a moment for the user to see the success message
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Redirect based on role
-      switch (signupData.role) {
-        case 'farmer':
-          window.location.href = 'http://localhost:5173/';
-          break;
-        case 'buyer':
-          window.location.href = 'http://localhost:5174/';
-          break;
-        case 'supplier':
-          window.location.href = 'http://localhost:5175/';
-          break;
-        default:
-          window.location.href = '/';
-      }
+      // switch (signupData.role) {
+      //   case 'farmer':
+      //     window.location.href = 'http://localhost:5173/';
+      //     break;
+      //   case 'buyer':
+      //     window.location.href = 'http://localhost:5174/';
+      //     break;
+      //   case 'supplier':
+      //     window.location.href = 'http://localhost:5175/';
+      //     break;
+      //   default:
+      //     window.location.href = '/';
+      // }
+
+      // Redirect with token in URL parameters
+  const port = getPortForRole(signupData.role);
+  const redirectUrl = new URL(`http://localhost:${port}/`);
+  redirectUrl.searchParams.set('token', token);
+  redirectUrl.searchParams.set('user', encodeURIComponent(JSON.stringify(user)));
+  
+  window.location.href = redirectUrl.toString();
 
     } catch (error) {
       console.error('Signup error:', error);

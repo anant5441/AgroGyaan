@@ -6,6 +6,7 @@ import { NavigationMenu as Navigation } from "@/components/ui/navigation-menu";
 import heroImage from "@/assets/hero-agriculture.jpg";
 import npkImage from "@/assets/npk-analysis.jpg";
 import traditionalImage from "@/assets/traditional-farming.jpg";
+import "@/styles/CropPrediction.css";
 
 const CropPrediction = () => {
   return (

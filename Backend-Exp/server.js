@@ -5,7 +5,6 @@ import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import authRoutes from "./routes/auth.js";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
-import userRoutes from "./routes/users.js";
 import cropListingRoutes from "./routes/cropListings.js";
 
 // Import controllers
@@ -69,7 +68,7 @@ app.get('/api/test', (req, res) => {
 
 // Auth routes
 app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
+// app.use("/api/users", userRoutes);
 app.use("/api/crop-listings", cropListingRoutes);
 
 // ==================== USER ROUTES ====================

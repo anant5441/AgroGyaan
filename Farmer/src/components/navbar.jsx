@@ -16,7 +16,7 @@ export function Navbar() {
   const navLinks = [
     { name: "Interactive Crop Calendar", href: "/calendar" },
     { name: "Feedback", href: "#feedback" },
-    { name: "Login/Signup", href: "#auth" }
+    { name: "Login/Signup", href: "/login" }
   ];
 
   const languages = [

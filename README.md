@@ -6,6 +6,61 @@ A comprehensive digital platform designed to revolutionize agriculture by connec
 ## 🎯 Project Vision
 To empower farmers with smart agricultural solutions, facilitate direct market access, and create a sustainable ecosystem that benefits all stakeholders in the agricultural value chain.
 
+## 🏗️ Getting Started
+
+**AI Backend (FastAPI):**
+```bash
+cd Backend-AI
+pip install -r requirements.txt
+uvicorn main:app --reload
+# Runs on http://localhost:8000
+```
+
+**Backend (Express.js):**
+```bash
+cd Backend-Exp
+npm install
+npm start
+# Runs on http://localhost:5000
+```
+
+
+**Farmer Frontend:**
+```bash
+cd Farmer
+npm install
+npm run dev
+# Runs on http://localhost:5173
+```
+
+**Buyer Frontend:**
+```bash
+cd Buyer
+npm install
+npm run dev
+# Runs on http://localhost:5174
+```
+
+**Equipment Seller Frontend:**
+```bash
+cd Equip-Seller
+npm install
+npm run dev
+# Runs on http://localhost:5175
+```
+
+### Environment Configuration
+Create `.env` files in each backend directory with required environment variables:
+- MongoDB connection strings
+- JWT secrets
+- API keys for external services (OpenWeatherMap, Geoapify, Groq, Google Gemini)
+
+### Development Workflow
+1. Start MongoDB service
+2. Run all backend services (AI, Core, Auth)
+3. Run frontend applications
+4. Access the platform through respective URLs
+
 ## 👥 User Roles & Features
 
 ### 1. 🌱 Farmer
@@ -83,48 +138,148 @@ Specialized marketplace for agricultural equipment and machinery:
 - **🌤️ Weather Tracker**: Comprehensive weather monitoring
 - **🧪 Pesticides Information**: Safe and effective pesticide usage guidelines
 
+## 🆕 Latest Features & Services
+
+### AI-Powered Services (Backend-AI):
+- **🤖 Intelligent Chat Assistant**: 
+  - Multi-model AI support (Groq Llama 3.1 + Google Gemini)
+  - RAG-based knowledge retrieval using FAISS vector database
+  - Location-aware responses with automatic IP detection
+  - Utilizes current location's weather data for context-aware answers
+  - Seasonal agricultural intelligence and crop suggestions
+  - 24/7 availability with response caching for performance
+
+- **📊 Advanced Market Price API**:
+  - Real-time agricultural commodity prices from data.gov.in
+  - Advanced filtering by state, district, commodity, and date
+  - Comprehensive market data for informed decision making
+
+- **🌿 Dynamic Organic Farming Guide**:
+  - Location-specific organic farming principles
+  - AI-generated guides using Google Gemini
+  - Structured recommendations with visual icons and descriptions
+
+- **🌤️ Smart Weather & Location Services**:
+  - Automatic IP-based location detection via Geoapify
+  - Real-time weather data integration with OpenWeatherMap
+  - Seasonal agricultural context and alerts
+
+### ML Models & Predictions:
+- **🌱 Crop Recommendation System**:
+  - Trained Logistic Regression model for crop suggestions
+  - Optimized model with hyperparameter tuning
+  - Feature scaling and normalization for accurate predictions
+
+- **🧪 Soil Nutrient Prediction (NPK)**:
+  - Advanced soil analysis and nutrient recommendations
+  - NPK (Nitrogen, Phosphorus, Potassium) prediction models
+
+- **🔍 Disease Classification**:
+  - Image-based crop disease detection
+  - Early warning system for disease prevention
+
+### Enhanced User Experience:
+- **📱 Modern UI/UX**:
+  - React 19 with latest Vite build system
+  - shadcn/ui component library (48+ components)
+  - Tailwind CSS with custom animations
+  - Responsive design for all devices
+
+- **⚡ Performance Optimizations**:
+  - TanStack Query for efficient data fetching
+  - Response caching in AI services
+  - Optimized bundle sizes with Vite
+  - Lazy loading and code splitting
+
+### Security & Authentication:
+- **🔐 Multi-tier Authentication**:
+  - Dedicated farmer authentication service
+  - JWT-based secure authentication
+  - Rate limiting and security headers
+  - Input validation and sanitization
+
+- **🛡️ Production-Ready Security**:
+  - Helmet security middleware
+  - CORS configuration
+  - Error handling and logging
+  - Environment-based configuration
+
 ## 🛠️ Technical Architecture & Tech Stack
 
 ### Frontend Technologies:
-- **Framework**: React.js
-- **UI Library**:  Tailwind CSS
-- **State Management**: Redux / Context API
-- **Voice Integration**: Web Speech API
+- **Framework**: React.js 19.1.1 with Vite 7.1.2
+- **UI Library**: Tailwind CSS 3.4.17 with shadcn/ui components
+- **State Management**: React Context API & TanStack Query 5.87+
+- **Routing**: React Router DOM 7.8+
+- **Form Handling**: React Hook Form 7.62+ with Zod validation
+- **Animations**: Framer Motion 12.23+ & Tailwind Animate
+- **Charts**: Recharts 2.15+ for data visualization
+- **Icons**: Lucide React 0.543+
 
 ### Backend Technologies:
-- **Server Framework**: Node.js with Express.js / Django
-- **API Architecture**: RESTful APIs
-- **Authentication**: JWT (JSON Web Tokens)
-- **Real-time Communication**: Socket.io / WebSocket
+
+#### Core Marketplace Backend (Backend-Exp):
+- **Server Framework**: Node.js with Express.js 5.1.0
+- **Database**: MongoDB 6.19+ with Mongoose 8.18+ ODM
+- **Authentication**: JWT (JSON Web Tokens) with bcryptjs 3.0.2
+- **API Architecture**: RESTful APIs with CORS support
+- **Environment**: ES Modules with dotenv 17.2+
+
+#### Farmer Authentication Service (Backend-Farmer-Auth):
+- **Server Framework**: Node.js with Express.js 4.18.2
+- **Security**: Helmet 7.1.0, express-rate-limit 7.1.5
+- **Validation**: express-validator 7.0.1
+- **Authentication**: JWT with bcryptjs 2.4.3
+- **Logging**: Custom logger utilities
+
+#### AI & ML Services (Backend-AI):
+- **Framework**: FastAPI (Python)
+- **AI Models**: 
+  - **Primary LLM**: Groq (Llama 3.1-8b-instant)
+  - **Fallback LLM**: Google Gemini Pro
+  - **Embeddings**: HuggingFace sentence-transformers
+- **Vector Database**: FAISS for RAG implementation
+- **Caching**: 24-hour response caching system
+- **Document Processing**: Optimized text chunking and similarity search
 
 ### Database & Storage:
-- **Primary Database**: MongoDB
-
+- **Primary Database**: MongoDB with Mongoose ODM
+- **Vector Storage**: FAISS indices for document similarity
+- **File Storage**: Local cache for ML models and responses
+- **Model Storage**: Pickle files for trained ML models
 
 ### AI/ML & Analytics:
-- **Machine Learning Framework**: Python with TensorFlow / PyTorch / Scikit-learn
-- **Predictive Models**:
-  - Crop yield prediction algorithms
-  - Weather pattern analysis
-  - Disease detection models
-  - Price forecasting systems
-- **Data Processing**: Apache Spark / Pandas / NumPy
+- **Machine Learning Framework**: Python with Scikit-learn
+- **Trained Models**: 
+  - Crop recommendation model (Logistic Regression)
+  - Optimized crop prediction model
+  - Soil nutrient (NPK) prediction
+- **Data Processing**: Pandas, NumPy for data manipulation
+- **Model Training**: Jupyter notebooks for model development
+- **RAG System**: FAISS-based document retrieval with cosine similarity
 
 ### External APIs & Integrations:
-- **Weather APIs**: OpenWeatherMap / AccuWeather / Weather.com
-- **Maps & Location**: Google Maps API / Mapbox
-- **Payment Gateway**: Stripe / Razorpay / PayPal
-- **SMS/Notifications**: Twilio / Firebase Cloud Messaging
-- **Translation**: Google Translate API (for multilingual support)
-- **LLM APIs**: Groq / Anthropic Claude / Hugging Face Models
-- **Vector Database**: Pinecone / Chroma,FAISS for RAG implementation
-- **Speech Services**: Google Speech-to-Text 
+- **Weather Data**: OpenWeatherMap API for real-time weather
+- **Location Services**: Geoapify API for IP-based location detection
+- **Market Data**: Data.gov.in API for Indian agricultural prices
+- **AI Services**: 
+  - Groq API for Llama 3.1 model
+  - Google Gemini API for enhanced responses
+  - HuggingFace for embeddings
 
-### Data Integration:
-- Weather APIs for real-time meteorological data
-- Market price feeds from agricultural commodity exchanges
-- Soil and crop databases from agricultural research institutions
-- Disease prediction algorithms using historical and real-time data
+### Development & Build Tools:
+- **Frontend Build**: Vite with ESLint 9.33+
+- **Package Management**: npm with package-lock.json
+- **Code Quality**: ESLint with React hooks plugin
+- **Styling**: PostCSS 8.5+ with Autoprefixer
+- **Development**: Nodemon 3.1+ for backend development
+
+### Deployment & Configuration:
+- **Environment**: Node.js ES Modules
+- **Configuration**: Environment variables with dotenv
+- **CORS**: Cross-origin resource sharing enabled
+- **Error Handling**: Centralized error middleware
+- **Logging**: Custom logging utilities for production
 
 ## 🚀 Key Benefits
 
@@ -157,6 +312,7 @@ Specialized marketplace for agricultural equipment and machinery:
 - **Knowledge Transfer**: Sharing agricultural expertise and best practices
 - **Rural Development**: Supporting rural communities through technology
 
+
 ## 📞 Support & Community
 
 - **Help Center**: Comprehensive documentation and FAQs
@@ -167,93 +323,153 @@ Specialized marketplace for agricultural equipment and machinery:
 
 ## 📁 Project Architecture
 
-### Folder Structure Overview
+### Current Folder Structure
 ```
-agrogyaan/
+AgroGyaan/
 │
-├── frontend/                           # React + Tailwind (Hybrid Frontend)
-│   ├── public/                         # Static files (favicon, manifest, index.html)
+├── Farmer/                             # 🌱 Farmer Frontend Application
 │   ├── src/
-│   │   ├── assets/                     # Images, icons, logos
 │   │   ├── components/                 # Reusable UI components
-│   │   │   ├── layouts/                # Role-based layouts
-│   │   │   │   ├── FarmerLayout/
-│   │   │   │   ├── BuyerLayout/
-│   │   │   │   └── SupplierLayout/
-│   │   │   └── pages/                  # Route pages
-│   │   │       ├── Farmer/             # Farmer-specific views
-│   │   │       │   ├── Dashboard/
-│   │   │       │   ├── CropListing/
-│   │   │       │   └── Forum/
-│   │   │       ├── Buyer/              # Buyer-specific views
-│   │   │       │   ├── Marketplace/
-│   │   │       │   ├── Cart/
-│   │   │       │   ├── BulkOrders/
-│   │   │       │   └── Contracts/
-│   │   │       ├── Supplier/           # Equipment supplier views
-│   │   │       │   ├── Listings/
-│   │   │       │   ├── Rent/
-│   │   │       │   └── Transactions/
-│   │   │       ├── Auth/               # Login, Signup, OTP
-│   │   │       └── Common/             # Shared pages (Home, About, Contact, Settings)
+│   │   │   ├── ui/                     # shadcn/ui components (48+ components)
+│   │   │   ├── navbar.jsx              # Navigation component
+│   │   │   ├── hero-section.jsx        # Landing page hero
+│   │   │   ├── features-section.jsx    # Feature showcase
+│   │   │   ├── ai-assistant.jsx        # AI chat interface
+│   │   │   └── footer.jsx              # Footer component
+│   │   ├── pages/                      # Application pages
+│   │   │   ├── Index.jsx               # Landing page
+│   │   │   ├── Login.jsx               # Authentication
+│   │   │   ├── CropCalender.jsx        # Crop calendar
+│   │   │   ├── OrganicFarmingGuide.jsx # Organic farming guidance
+│   │   │   ├── DiseaseClassifier.jsx   # Disease detection
+│   │   │   ├── MarketPriceDashboard.jsx # Price tracking
+│   │   │   ├── CropPrediction.jsx      # AI crop recommendations
+│   │   │   ├── NPKPrediction.jsx       # Soil nutrient prediction
+│   │   │   └── SimplePrediction.jsx    # Basic predictions
+│   │   ├── contexts/                   # React contexts
+│   │   │   └── ThemeContext.jsx        # Theme management
 │   │   ├── hooks/                      # Custom React hooks
-│   │   ├── context/                    # Context API (AuthContext, LanguageContext, ThemeContext)
-│   │   ├── services/                   # API calls
-│   │   │   ├── api.express.js          # Normal backend API calls
-│   │   │   └── api.ai.js               # AI backend (FastAPI services)
-│   │   ├── utils/                      # Helper functions (formatting, validators, constants)
-│   │   ├── App.js                      # Root app component
-│   │   ├── index.js                    # React entry point
-│   │   └── tailwind.config.js          # Tailwind setup
-│   └── package.json
+│   │   ├── lib/                        # Utility functions
+│   │   ├── App.jsx                     # Main app component
+│   │   └── main.jsx                    # React entry point
+│   ├── package.json                    # Dependencies (React 19, Vite, Tailwind)
+│   └── vite.config.js                  # Vite configuration
 │
-├── backend-express/                    # Express.js Backend (Core Marketplace API)
+├── Buyer/                              # 🛒 Buyer Frontend Application
 │   ├── src/
-│   │   ├── config/                     # Config files (DB, environment, constants)
-│   │   ├── middleware/                 # Middlewares (auth, error handling, validation)
-│   │   ├── models/                     # MongoDB/SQL models
-│   │   │   ├── User.js
-│   │   │   ├── Product.js
-│   │   │   ├── Order.js
-│   │   │   ├── Chat.js
-│   │   │   └── Forum.js
-│   │   ├── routes/                     # Express routes
-│   │   │   ├── auth.routes.js
-│   │   │   ├── user.routes.js
-│   │   │   ├── farmer.routes.js
-│   │   │   ├── buyer.routes.js
-│   │   │   ├── supplier.routes.js
-│   │   │   ├── marketplace.routes.js
-│   │   │   ├── chat.routes.js
-│   │   │   └── payment.routes.js
-│   │   ├── controllers/                # Route handlers (business logic)
-│   │   ├── services/                   # Extra logic (payment service, notifications, logistics)
-│   │   ├── utils/                      # Helpers (JWT, password hashing, formatters)
-│   │   ├── app.js                      # Express app setup
-│   │   └── server.js                   # Entry point
-│   └── package.json
+│   │   ├── components/                 # UI components
+│   │   │   ├── ui/                     # shadcn/ui components (48 components)
+│   │   │   ├── DashboardLayout.jsx     # Main dashboard layout
+│   │   │   ├── DashboardOverview.jsx   # Dashboard overview
+│   │   │   └── Footer.jsx              # Footer component
+│   │   ├── pages/                      # Buyer-specific pages
+│   │   │   ├── Index.jsx               # Landing page
+│   │   │   ├── Marketplace.jsx         # Product marketplace
+│   │   │   ├── Orders.jsx              # Order management
+│   │   │   ├── PriceTracker.jsx        # Price monitoring
+│   │   │   ├── Traceability.jsx        # Supply chain tracking
+│   │   │   ├── Messages.jsx            # Communication
+│   │   │   ├── Settings.jsx            # User settings
+│   │   │   └── Notifications.jsx       # Notification center
+│   │   ├── contexts/                   # React contexts
+│   │   ├── hooks/                      # Custom hooks
+│   │   ├── lib/                        # Utilities
+│   │   ├── App.jsx                     # Main app component
+│   │   └── main.jsx                    # Entry point
+│   ├── package.json                    # Dependencies (React 19, Vite, Tailwind)
+│   └── vite.config.js                  # Vite configuration
 │
-├── backend-ai/                         # FastAPI Backend (AI Models & Predictions)
-│   ├── app/
-│   │   ├── models/                     # AI/ML models (trained models saved here)
-│   │   ├── routes/                     # API endpoints
-│   │   │   ├── crop_recommendation.py
-│   │   │   ├── yield_prediction.py
-│   │   │   ├── soil_analysis.py
-│   │   │   ├── disease_detection.py
-│   │   │   └── weather.py
-│   │   ├── services/                   # ML service functions (load models, run predictions)
-│   │   ├── utils/                      # Preprocessing, image handling, data normalization
-│   │   └── main.py                     # FastAPI app entry point
-│   └── requirements.txt                # Python dependencies
+├── Equip-Seller/                       # 🚜 Equipment Seller Frontend
+│   ├── src/
+│   │   ├── components/                 # UI components
+│   │   │   ├── ui/                     # shadcn/ui components (49 components)
+│   │   │   ├── Dashboard_Layout.jsx    # Main layout
+│   │   │   ├── Header.jsx              # Header component
+│   │   │   ├── Sidebar.jsx             # Navigation sidebar
+│   │   │   └── Footer.jsx              # Footer
+│   │   ├── pages/                      # Equipment seller pages
+│   │   │   ├── DashboardOverview.jsx   # Dashboard
+│   │   │   ├── AddEquipment.jsx        # Add equipment
+│   │   │   ├── ViewEquipment.jsx       # Equipment management
+│   │   │   ├── Orders.jsx              # Order processing
+│   │   │   ├── Notifications.jsx       # Notifications
+│   │   │   └── SellerProfile.jsx       # Profile management
+│   │   ├── contexts/                   # React contexts
+│   │   ├── hooks/                      # Custom hooks
+│   │   ├── lib/                        # Utilities
+│   │   ├── styles/                     # Custom styles
+│   │   ├── App.jsx                     # Main app component
+│   │   └── main.jsx                    # Entry point
+│   ├── package.json                    # Dependencies (React 19, Vite, Tailwind)
+│   └── vite.config.js                  # Vite configuration
 │
-├── docs/                               # Documentation
-│   ├── system_architecture.png
-│   ├── workflow_diagram.png
-│   └── README.md
+├── Backend-AI/                         # 🤖 AI & ML Services (FastAPI)
+│   ├── main.py                         # FastAPI application entry point
+│   ├── routes/                         # API route modules
+│   │   ├── main_chatbot/               # AI Chatbot services
+│   │   │   ├── chat_router.py          # Chat API endpoints
+│   │   │   ├── chat.py                 # Core chat logic & AI models
+│   │   │   ├── data/                   # Training data
+│   │   │   └── vector_store/           # FAISS vector database
+│   │   ├── crop_recommendation_router.py # Crop recommendation API
+│   │   ├── marketprice_router.py       # Market price data API
+│   │   └── organicguide_router.py      # Organic farming guide API
+│   ├── services/                       # Business logic services
+│   │   ├── Crop_Recommendation/        # Crop recommendation service
+│   │   │   └── crop_service.py         # ML model service
+│   │   └── Farming_Guide/              # Farming guidance service
+│   │       └── guide.py                # Guide generation logic
+│   ├── vector_store/                   # Vector database storage
+│   │   └── chat_db_faiss/              # FAISS index files
+│   ├── cache/                          # Response caching
+│   └── README.md                       # AI backend documentation
 │
-├── .env.example                        # Example env file for secrets
-├── docker-compose.yml                  # Docker setup for frontend + both backends
+├── Backend-Exp/                        # 🏪 Core Marketplace Backend (Express.js)
+│   ├── server.js                       # Express application entry point
+│   ├── config/                         # Configuration files
+│   │   └── database.js                 # MongoDB connection
+│   ├── models/                         # Database models
+│   │   ├── User.js                     # User model
+│   │   ├── Farmer.js                   # Farmer profile model
+│   │   ├── Buyer.js                    # Buyer profile model
+│   │   ├── Supplier.js                 # Supplier profile model
+│   │   ├── CropListing.js              # Crop listing model
+│   │   ├── EquipmentListing.js         # Equipment listing model
+│   │   ├── Order.js                    # Order management model
+│   │   ├── EquipmentOrder.js           # Equipment order model
+│   │   ├── Chat.js                     # Chat/messaging model
+│   │   ├── ForumPost.js                # Forum posts model
+│   │   ├── MarketPrice.js              # Market price model
+│   │   ├── Notification.js             # Notifications model
+│   │   └── Payment.js                  # Payment model
+│   ├── routes/                         # API routes
+│   │   ├── auth.js                     # Authentication routes
+│   │   └── cropListings.js             # Crop listing routes
+│   ├── controllers/                    # Route controllers
+│   │   ├── authController.js           # Authentication logic
+│   │   ├── cropListingController.js    # Crop listing management
+│   │   └── userController.js           # User management
+│   ├── middleware/                     # Express middleware
+│   │   ├── authMiddleware.js           # JWT authentication
+│   │   ├── errorMiddleware.js          # Error handling
+│   │   └── validationMiddleware.js     # Input validation
+│   └── package.json                    # Dependencies (Express, MongoDB)
+│
+│
+├── Model/                              # 🧠 ML Models & Training Data
+│   └── Crop_Recommendation/            # Crop recommendation models
+│       ├── crop_prediction_model.pkl   # Trained ML model
+│       ├── optimized_crop_model.pkl    # Optimized model
+│       ├── best_params.pkl             # Best hyperparameters
+│       ├── scaler.pkl                  # Data scaler
+│       ├── feature_names.pkl           # Feature names
+│       ├── crop_labels.pkl             # Crop label mappings
+│       ├── Crop_recommendation.csv     # Training dataset
+│       ├── Crop-Recommendation-Model-Logistic-Regression.ipynb # Training notebook
+│       └── Logistic_Regression_Model_Testing.ipynb # Testing notebook
+│
+├── requirements.txt                    # Python dependencies for AI backend
+├── package-lock.json                   # Root package lock file
 └── README.md                           # Project documentation
 ```
 

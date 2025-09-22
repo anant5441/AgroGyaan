@@ -124,7 +124,7 @@ export const FeaturesSection = forwardRef((props, ref) => {
 
   const navigate = useNavigate();
   // Get the current user from sessionStorage
-  const user = JSON.parse(sessionStorage.getItem("user")) || {};
+  const user = JSON.parse(sessionStorage.getItem("user")) || { role: "farmer" };
   const userRole = user.role; // default fallback
 
   // Filter features by role

@@ -186,12 +186,9 @@ const AuthPage = () => {
       //     window.location.href = '/';
 
       // Redirect with token in URL parameters
-  const port = getPortForRole(userRole);
-  const redirectUrl = new URL(`http://localhost:${port}/`);
-  redirectUrl.searchParams.set('token', token);
-  redirectUrl.searchParams.set('user', JSON.stringify(user));
-  
-  window.location.href = redirectUrl.toString();
+  // const port = getPortForRole(userRole);
+    const redirectUrl = getRedirectUrlForRole(userRole, token, user);
+      window.location.href = redirectUrl;
 
     } catch (error) {
       console.error('Login error:', error);
@@ -222,14 +219,29 @@ const AuthPage = () => {
     }
   };
 
-  const getPortForRole = (role) => {
-  switch(role) {
-    case 'farmer': return '5173';
-    case 'buyer': return '5174';
-    case 'supplier': return '5175';
-    default: return '5173';
-  }
-};
+  const getRedirectUrlForRole = (role, token, user) => {
+    let baseUrl;
+    
+    switch(role) {
+      case 'farmer':
+        baseUrl = 'https://agro-gyaan.vercel.app/';
+        break;
+      case 'buyer':
+        baseUrl = 'https://buyer-iota.vercel.app/';
+        break;
+      case 'supplier':
+        baseUrl = 'https://equip-seller.vercel.app/';
+        break;
+      default:
+        baseUrl = 'http://localhost:5173/';
+    }
+    
+    const redirectUrl = new URL(baseUrl);
+    redirectUrl.searchParams.set('token', token);
+    redirectUrl.searchParams.set('user', encodeURIComponent(JSON.stringify(user)));
+    
+    return redirectUrl.toString();
+  };
 
 
   const handleSignup = async (e) => {
@@ -331,12 +343,8 @@ const AuthPage = () => {
       // }
 
       // Redirect with token in URL parameters
-  const port = getPortForRole(signupData.role);
-  const redirectUrl = new URL(`http://localhost:${port}/`);
-  redirectUrl.searchParams.set('token', token);
-  redirectUrl.searchParams.set('user', encodeURIComponent(JSON.stringify(user)));
-  
-  window.location.href = redirectUrl.toString();
+  const redirectUrl = getRedirectUrlForRole(signupData.role, token, user);
+      window.location.href = redirectUrl;
 
     } catch (error) {
       console.error('Signup error:', error);

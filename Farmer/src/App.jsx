@@ -26,18 +26,30 @@ import { useEffect } from "react";
 const App = () => {
   // Check for token in URL on app load
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const userData = urlParams.get('user');
+    // const urlParams = new URLSearchParams(window.location.search);
+    // const token = urlParams.get('token');
+    // const userData = urlParams.get('user');
     
-    if (token && userData) {
-      // Store in sessionStorage/localStorage for this domain
-      sessionStorage.setItem('token', token);
-      sessionStorage.setItem('user', userData);
+    // if (token && userData) {
+    //   // Store in sessionStorage/localStorage for this domain
+    //   sessionStorage.setItem('token', token);
+    //   sessionStorage.setItem('user', userData);
       
-      // Clean up the URL
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
+    //   // Clean up the URL
+    //   const cleanUrl = window.location.origin + window.location.pathname;
+    //   window.history.replaceState({}, document.title, cleanUrl);
+    const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  const user = params.get('user');
+
+  if (token) {
+    // Store in sessionStorage instead of localStorage for security
+    sessionStorage.setItem('token', token);
+    if (user) {
+      sessionStorage.setItem('user', decodeURIComponent(user));
+    }
+    // Clean URL after storing
+    window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
   return (

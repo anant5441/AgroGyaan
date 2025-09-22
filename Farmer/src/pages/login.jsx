@@ -198,7 +198,7 @@ const AuthPage = () => {
       
       // Provide more specific error messages
       if (error.message.includes('Failed to fetch')) {
-        errorMessage = 'Cannot connect to the server. Please make sure the backend is running on http://localhost:5000';
+        errorMessage = 'Cannot connect to the server. Please make sure the backend is running on https://backend-exp-yul4.onrender.com/';
       } else if (error.message.includes('NetworkError')) {
         errorMessage = 'Network error. Please check your internet connection.';
       } else if (error.message === 'WRONG_CREDENTIALS') {
@@ -270,7 +270,7 @@ const AuthPage = () => {
 
     try {
       // Make API call to register endpoint
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await fetch('https://backend-exp-yul4.onrender.com/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -297,7 +297,7 @@ const AuthPage = () => {
       });
 
       // Auto-login after successful registration
-      const loginResponse = await fetch('http://localhost:5000/api/auth/login', {
+      const loginResponse = await fetch('https://backend-exp-yul4.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

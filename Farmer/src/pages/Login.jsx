@@ -124,7 +124,7 @@ const AuthPage = () => {
 
     try {
       // Make actual API call to your backend
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch('https://backend-exp-yul4.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,7 +188,9 @@ const AuthPage = () => {
       // Redirect with token in URL parameters
   // const port = getPortForRole(userRole);
     const redirectUrl = getRedirectUrlForRole(userRole, token, user);
-      window.location.href = redirectUrl;
+    window.dispatchEvent(new Event("storage"));  
+    window.location.href = redirectUrl;
+      
 
     } catch (error) {
       console.error('Login error:', error);
@@ -344,7 +346,8 @@ const AuthPage = () => {
 
       // Redirect with token in URL parameters
   const redirectUrl = getRedirectUrlForRole(signupData.role, token, user);
-      window.location.href = redirectUrl;
+  window.dispatchEvent(new Event("storage"));    
+  window.location.href = redirectUrl;
 
     } catch (error) {
       console.error('Signup error:', error);
@@ -354,7 +357,7 @@ const AuthPage = () => {
       
       // Provide more specific error messages
       if (error.message.includes('Failed to fetch')) {
-        errorMessage = 'Cannot connect to the server. Please make sure the backend is running on http://localhost:5000';
+        errorMessage = 'Cannot connect to the server. Please make sure the backend is running on https://backend-exp-yul4.onrender.com/';
       } else if (error.message.includes('NetworkError')) {
         errorMessage = 'Network error. Please check your internet connection.';
       } else if (error.message.includes('User already exists')) {

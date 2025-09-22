@@ -16,17 +16,52 @@ export function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState(null);
 
-  useEffect(()=>{
+  const checkAuth = () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const user = localStorage.getItem('user') || sessionStorage.getItem('user');
-    if(token && user){
+    if (token && user) {
       setIsLoggedIn(true);
       setUserData(JSON.parse(user));
-    }else{
+    } else {
       setIsLoggedIn(false);
       setUserData(null);
     }
-  },[]);
+  };
+
+  useEffect(() => {
+    checkAuth(); // Initial check
+    
+    // Listen for storage changes (for same-tab updates)
+    const handleStorageChange = () => {
+      checkAuth();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Custom event for same-tab login/logout
+    const handleAuthChange = () => {
+      checkAuth();
+    };
+    
+    window.addEventListener('authChange', handleAuthChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('authChange', handleAuthChange);
+    };
+  }, []);
+
+  // useEffect(()=>{
+  //   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  //   const user = localStorage.getItem('user') || sessionStorage.getItem('user');
+  //   if(token && user){
+  //     setIsLoggedIn(true);
+  //     setUserData(JSON.parse(user));
+  //   }else{
+  //     setIsLoggedIn(false);
+  //     setUserData(null);
+  //   }
+  // },[]);
 
 
 

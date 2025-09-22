@@ -124,12 +124,12 @@ export const FeaturesSection = forwardRef((props, ref) => {
 
   const navigate = useNavigate();
   // Get the current user from sessionStorage
-  const user = JSON.parse(sessionStorage.getItem("user")) || { role: "farmer" };
+  const user = JSON.parse(sessionStorage.getItem("user")) || { };
   const userRole = user.role; // default fallback
 
   // Filter features by role
-  const filteredFeatures = features.filter(f => f.role === userRole);
-
+  // const filteredFeatures = features.filter(f => f.role === userRole);
+  const filteredFeatures = !userRole ? features : features.filter(f => f.role === userRole);
   return (
     <section ref={ref} className="py-20 px-4 bg-gradient-soft">
       <div className="container mx-auto">

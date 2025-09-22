@@ -11,7 +11,7 @@ import { Orders } from "./pages/Orders";
 import { Notifications } from "./pages/Notifications";
 import { SellerProfile } from "./pages/SellerProfile";
 import NotFound from "./pages/NotFound";
-import { DashboardLayout } from "./components/dashboard_Layout";
+import { DashboardLayout } from "./components/DashboardLayout.jsx";
 
 const queryClient = new QueryClient();
 

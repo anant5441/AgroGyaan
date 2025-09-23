@@ -1,0 +1,490 @@
+# 🏪 AgroGyaan Backend-Exp - Core Marketplace API
+
+A robust Express.js backend service that powers the core marketplace functionality of the AgroGyaan platform, handling user authentication, crop listings, and marketplace operations.
+
+## 🎯 Overview
+
+The Backend-Exp service provides the essential marketplace infrastructure for:
+- **User Authentication & Authorization** - Secure JWT-based authentication for farmers, buyers, and suppliers
+- **Crop Listing Management** - Complete CRUD operations for agricultural product listings
+- **User Profile Management** - User data handling and profile updates
+- **Marketplace Operations** - Core marketplace functionality and data management
+
+
+
+## 🔌 API Documentation
+
+### Base URL: `http://localhost:5000`
+
+### Authentication Endpoints
+
+#### 1. User Registration
+```http
+POST /api/auth/register
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "John Doe",
+  "phone": "9876543210",
+  "password": "securePassword123",
+  "role": "farmer",
+  "email": "john@example.com"  // Optional
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "msg": "User registered successfully",
+  "user": {
+    "id": "64a7b8c9d1e2f3g4h5i6j7k8",
+    "name": "John Doe",
+    "phone": "9876543210",
+    "email": "john@example.com",
+    "role": "farmer"
+  }
+}
+```
+
+**Error Responses:**
+```json
+{
+  "success": false,
+  "code": "MISSING_REQUIRED_FIELDS",
+  "msg": "Name, phone, password, and role are required fields"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "PHONE_ROLE_EXISTS",
+  "msg": "User already exists with this phone number and role"
+}
+```
+
+#### 2. User Login
+```http
+POST /api/auth/login
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "identifier": "9876543210",  // Phone number or email
+  "password": "securePassword123",
+  "role": "farmer"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "64a7b8c9d1e2f3g4h5i6j7k8",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "9876543210",
+    "role": "farmer",
+    "language_pref": "en",
+    "trust_score": 0.0
+  }
+}
+```
+
+**Error Responses:**
+```json
+{
+  "success": false,
+  "code": "INVALID_CREDENTIALS",
+  "msg": "Invalid credentials or role mismatch"
+}
+```
+
+### User Management Endpoints
+
+#### 1. Get User by ID
+```http
+GET /api/users/:id
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "_id": "64a7b8c9d1e2f3g4h5i6j7k8",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "phone": "9876543210",
+  "role": "farmer",
+  "language_pref": "en",
+  "trust_score": 0.0,
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+#### 2. Update User
+```http
+PUT /api/users/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "John Smith",
+  "email": "johnsmith@example.com",
+  "language_pref": "hi"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "User updated successfully",
+  "user": {
+    "_id": "64a7b8c9d1e2f3g4h5i6j7k8",
+    "name": "John Smith",
+    "email": "johnsmith@example.com",
+    "phone": "9876543210",
+    "role": "farmer",
+    "language_pref": "hi",
+    "trust_score": 0.0,
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T11:45:00.000Z"
+  }
+}
+```
+
+#### 3. Delete User
+```http
+DELETE /api/users/:id
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "message": "User deleted successfully",
+  "user": {
+    "id": "64a7b8c9d1e2f3g4h5i6j7k8",
+    "name": "John Doe",
+    "email": "john@example.com"
+  }
+}
+```
+
+### Crop Listing Endpoints
+
+#### 1. Get All Crop Listings
+```http
+GET /api/crop-listings
+```
+
+**Response:**
+```json
+[
+  {
+    "_id": "64a7b8c9d1e2f3g4h5i6j7k9",
+    "farmer_id": {
+      "_id": "64a7b8c9d1e2f3g4h5i6j7k8",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "9876543210"
+    },
+    "crop_name": "Rice",
+    "variety": "Basmati",
+    "Quantity_available_retail": 100,
+    "Quantity_available_wholesale": 1000,
+    "unit_retail": "kg",
+    "unit_wholesale": "quintal",
+    "price_per_unit_retail": 50,
+    "price_per_unit_wholesale": 4500,
+    "sale_type": "both",
+    "organic_certified": true,
+    "listing_status": "active",
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T10:30:00.000Z"
+  }
+]
+```
+
+#### 2. Get Crop Listing by ID
+```http
+GET /api/crop-listings/:id
+```
+
+**Response:**
+```json
+{
+  "_id": "64a7b8c9d1e2f3g4h5i6j7k9",
+  "farmer_id": {
+    "_id": "64a7b8c9d1e2f3g4h5i6j7k8",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "9876543210"
+  },
+  "crop_name": "Rice",
+  "variety": "Basmati",
+  "Quantity_available_retail": 100,
+  "Quantity_available_wholesale": 1000,
+  "unit_retail": "kg",
+  "unit_wholesale": "quintal",
+  "price_per_unit_retail": 50,
+  "price_per_unit_wholesale": 4500,
+  "sale_type": "both",
+  "organic_certified": true,
+  "listing_status": "active",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+#### 3. Create Crop Listing
+```http
+POST /api/crop-listings
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "farmer_id": "64a7b8c9d1e2f3g4h5i6j7k8",
+  "crop_name": "Wheat",
+  "variety": "Durum",
+  "Quantity_available_retail": 200,
+  "Quantity_available_wholesale": 2000,
+  "unit_retail": "kg",
+  "unit_wholesale": "quintal",
+  "price_per_unit_retail": 25,
+  "price_per_unit_wholesale": 2200,
+  "sale_type": "both",
+  "organic_certified": false,
+  "listing_status": "active"
+}
+```
+
+**Response:**
+```json
+{
+  "_id": "64a7b8c9d1e2f3g4h5i6j7k9",
+  "farmer_id": {
+    "_id": "64a7b8c9d1e2f3g4h5i6j7k8",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "9876543210"
+  },
+  "crop_name": "Wheat",
+  "variety": "Durum",
+  "Quantity_available_retail": 200,
+  "Quantity_available_wholesale": 2000,
+  "unit_retail": "kg",
+  "unit_wholesale": "quintal",
+  "price_per_unit_retail": 25,
+  "price_per_unit_wholesale": 2200,
+  "sale_type": "both",
+  "organic_certified": false,
+  "listing_status": "active",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+#### 4. Update Crop Listing
+```http
+PUT /api/crop-listings/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "price_per_unit_retail": 30,
+  "price_per_unit_wholesale": 2500,
+  "Quantity_available_retail": 150
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Crop listing updated successfully",
+  "cropListing": {
+    "_id": "64a7b8c9d1e2f3g4h5i6j7k9",
+    "farmer_id": {
+      "_id": "64a7b8c9d1e2f3g4h5i6j7k8",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "9876543210"
+    },
+    "crop_name": "Wheat",
+    "variety": "Durum",
+    "Quantity_available_retail": 150,
+    "Quantity_available_wholesale": 2000,
+    "unit_retail": "kg",
+    "unit_wholesale": "quintal",
+    "price_per_unit_retail": 30,
+    "price_per_unit_wholesale": 2500,
+    "sale_type": "both",
+    "organic_certified": false,
+    "listing_status": "active",
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T11:45:00.000Z"
+  }
+}
+```
+
+#### 5. Delete Crop Listing
+```http
+DELETE /api/crop-listings/:id
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "message": "Crop listing deleted successfully",
+  "cropListing": {
+    "id": "64a7b8c9d1e2f3g4h5i6j7k9",
+    "crop_name": "Wheat",
+    "farmer_id": "64a7b8c9d1e2f3g4h5i6j7k8"
+  }
+}
+```
+
+### System Endpoints
+
+#### 1. Health Check
+```http
+GET /api/health
+```
+
+**Response:**
+```json
+{
+  "status": "✅ OK",
+  "database": "✅ Connected"
+}
+```
+
+#### 2. API Test
+```http
+GET /api/test
+```
+
+**Response:**
+```json
+{
+  "message": "✅ API is working!",
+  "version": "1.0.0"
+}
+```
+
+## 🔐 Authentication & Security
+
+### JWT Token Structure
+```json
+{
+  "id": "64a7b8c9d1e2f3g4h5i6j7k8",
+  "role": "farmer",
+  "email": "john@example.com",
+  "name": "John Doe",
+  "iat": 1642234567,
+  "exp": 1642238167
+}
+```
+
+### Authorization Header
+```
+Authorization: Bearer <your-jwt-token>
+```
+
+### User Roles
+- **farmer** - Agricultural producers
+- **buyer** - Agricultural product purchasers
+- **supplier** - Equipment and supply providers
+
+### Security Features
+- **Password Hashing** - bcryptjs with salt rounds
+- **JWT Authentication** - Secure token-based authentication
+- **Role-based Access** - Different permissions for different user types
+- **Input Validation** - Request data validation and sanitization
+- **CORS Protection** - Cross-origin resource sharing configuration
+
+## 📊 Data Models
+
+### User Model
+```javascript
+{
+  name: String (required),
+  email: String (optional, sparse unique),
+  phone: String (required, 10 digits),
+  password_hash: String (required),
+  role: String (required, enum: ['farmer', 'buyer', 'supplier']),
+  language_pref: String (default: 'en'),
+  trust_score: Number (default: 0.0),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### CropListing Model
+```javascript
+{
+  farmer_id: ObjectId (required, ref: 'Farmer'),
+  crop_name: String (required),
+  variety: String (optional),
+  Quantity_available_retail: Number,
+  Quantity_available_wholesale: Number,
+  unit_retail: String (enum: ['kg', 'quintal', 'ton']),
+  unit_wholesale: String (enum: ['kg', 'quintal', 'ton']),
+  price_per_unit_retail: Number,
+  price_per_unit_wholesale: Number,
+  sale_type: String (required, enum: ['retail', 'wholesale', 'both']),
+  organic_certified: Boolean (default: false),
+  listing_status: String (enum: ['active', 'sold'], default: 'active'),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+## ⚙️ Environment Configuration
+
+Create a `.env` file in the root directory:
+
+```env
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+
+# Database Configuration
+MONGODB_URL=mongodb://localhost:27017/agrogyaan
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key-here
+
+
+### Database Connection
+The application automatically connects to MongoDB on startup. Ensure MongoDB is running and the connection string is correct in your environment variables.
+
+### Error Handling
+The application includes comprehensive error handling:
+- **404 Errors** - Route not found
+- **Validation Errors** - Input validation failures
+- **Authentication Errors** - Invalid or missing tokens
+- **Database Errors** - MongoDB connection and query errors
+
+
+
+*Powering the Future of Agricultural Commerce* 🌾✨

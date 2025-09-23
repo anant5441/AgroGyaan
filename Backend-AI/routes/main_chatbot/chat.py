@@ -19,12 +19,18 @@ import google.generativeai as genai
 import hashlib
 import pickle
 from functools import lru_cache
+from bs4 import BeautifulSoup
+
+import tensorflow as tf
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 
 
@@ -239,28 +245,51 @@ def get_weather_data(latitude, longitude, location_name):
         logger.error(error_msg)
         return {"error": error_msg}
 
-def get_seasonal_info():
-    """Get current season information for agricultural context"""
+def get_seasonal_info(query=""):
+    """Get current season information for agricultural context with query awareness"""
     current_month = datetime.now().month
+    query_lower = query.lower() if query else ""
+    
+    # Check if user is specifically asking about summer
+    is_summer_query = any(word in query_lower for word in ['summer', 'summers'])
     
     # Define seasons for agricultural context
     if current_month in [12, 1, 2]:
-        season = "Winter (Rabi Season)"
+        current_season = "Winter (Rabi Season)"
         description = "Cold and dry season, suitable for wheat, barley, peas, and mustard"
+        summer_season = "Summer (Pre-Monsoon) - March to May"
+        summer_description = "Hot and dry season, suitable for summer crops like fodder crops and vegetables"
     elif current_month in [3, 4, 5]:
-        season = "Summer (Pre-Monsoon)"
+        current_season = "Summer (Pre-Monsoon)"
         description = "Hot and dry season, suitable for summer crops like fodder crops and vegetables"
+        summer_season = current_season
+        summer_description = description
     elif current_month in [6, 7, 8, 9]:
-        season = "Monsoon (Kharif Season)"
+        current_season = "Monsoon (Kharif Season)"
         description = "Rainy season, suitable for rice, sugarcane, cotton, and jowar"
+        summer_season = "Summer (Pre-Monsoon) - March to May"
+        summer_description = "Hot and dry season, suitable for summer crops like fodder crops and vegetables"
     else:  # [10, 11]
-        season = "Post-Monsoon (Harvest/Transition)"
+        current_season = "Post-Monsoon (Harvest/Transition)"
         description = "Harvest season transitioning to winter crops"
+        summer_season = "Summer (Pre-Monsoon) - March to May"
+        summer_description = "Hot and dry season, suitable for summer crops like fodder crops and vegetables"
+    
+    # If user specifically asked about summer, prioritize summer information
+    if is_summer_query:
+        return {
+            "current_season": summer_season,
+            "description": summer_description,
+            "month": current_month,
+            "is_summer_focus": True,
+            "actual_current_season": current_season
+        }
     
     return {
-        "current_season": season,
+        "current_season": current_season,
         "description": description,
-        "month": current_month
+        "month": current_month,
+        "is_summer_focus": False
     }
 
 def needs_location_detection(query):
@@ -427,6 +456,7 @@ def remove_redundancies(answer):
     # Clean up extra spaces
     return " ".join(answer.split())
 
+
 def generate_groq_answer(query, context_docs, location_data, weather_data, season_info, agricultural_alerts, crop_suggestions):
     """Generate answer using Groq LLM with context and location/weather data"""
     try:
@@ -448,6 +478,12 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
         
         season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
         
+        # Prepare season context based on whether it's a summer-focused query
+        if season_info.get('is_summer_focus'):
+            season_context = f"USER IS SPECIFICALLY ASKING ABOUT SUMMER SEASON: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
+        else:
+            season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
+
         # Prepare agricultural context
         agricultural_context = ""
         if agricultural_alerts:
@@ -533,6 +569,11 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
             weather_context = f"Current Weather: {weather_data.get('temperature', 'N/A')}°C, {weather_data.get('conditions', 'N/A')}, Humidity: {weather_data.get('humidity', 'N/A')}%"
         
         season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
+
+        if season_info.get('is_summer_focus'):
+            season_context = f"USER IS SPECIFICALLY ASKING ABOUT SUMMER SEASON: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
+        else:
+            season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
         
         # Prepare agricultural context
         agricultural_context = ""
@@ -783,32 +824,39 @@ def get_crop_suggestions(location_data, weather_data, season_info):
     season = season_info.get('current_season', '')
     temp = weather_data.get('temperature', 0)
     
-    # Winter crops (Rabi season)
-    if 'Winter' in season:
+    # Check if this is a summer-focused query
+    is_summer_focus = season_info.get('is_summer_focus', False)
+    
+    # If user specifically asked about summer, prioritize summer crops
+    if is_summer_focus or 'Summer' in season:
+        suggestions.extend(["Millets (Pearl millet, Finger millet)", "Vegetables (Cucumber, Bottle Gourd, Bitter Gourd)", "Pulses (Green gram, Black gram)", "Oilseeds (Sesame, Groundnut)", "Fodder crops (Sorghum, Maize)"])
+        if state in ['punjab', 'haryana', 'uttar pradesh']:
+            suggestions.extend(["Summer vegetables (Okra, Pumpkin)", "Fodder maize"])
+        elif state in ['maharashtra', 'karnataka', 'andhra pradesh']:
+            suggestions.extend(["Sunflower", "Green gram", "Cluster beans"])
+    
+    # Winter crops (Rabi season) - only if not summer-focused
+    elif 'Winter' in season and not is_summer_focus:
         suggestions.extend(["Wheat", "Barley", "Mustard", "Peas", "Chickpeas"])
         if state in ['punjab', 'haryana', 'uttar pradesh']:
             suggestions.extend(["Potato", "Onion", "Garlic"])
     
-    # Monsoon crops (Kharif season)
-    elif 'Monsoon' in season:
+    # Monsoon crops (Kharif season) - only if not summer-focused
+    elif 'Monsoon' in season and not is_summer_focus:
         suggestions.extend(["Rice", "Maize", "Cotton", "Soybean", "Groundnut"])
         if state in ['maharashtra', 'karnataka', 'andhra pradesh']:
             suggestions.extend(["Sugarcane", "Turmeric", "Pulses"])
     
-    # Summer crops
-    elif 'Summer' in season:
-        suggestions.extend(["Millets", "Vegetables", "Fodder crops"])
-        if isinstance(temp, (int, float)) and temp < 35:
-            suggestions.extend(["Cucumber", "Bottle Gourd", "Bitter Gourd"])
-    
-    # Post-monsoon transition crops
-    else:
+    # Post-monsoon transition crops - only if not summer-focused
+    elif not is_summer_focus:
         suggestions.extend(["Vegetables", "Pulses", "Oilseeds"])
         if state in ['tamil nadu', 'kerala']:
             suggestions.extend(["Banana", "Coconut", "Spices"])
     
     # Limit to top 5 suggestions
     return suggestions[:5]
+
+
 def is_agricultural_query(query):
     """Determine if the query is related to agriculture"""
     agricultural_keywords = [
@@ -825,7 +873,7 @@ def is_agricultural_query(query):
         "agricultural policy", "agricultural economics", "food security", "rural development",
         "agricultural extension", "agricultural education", "agricultural marketing","sow",
         "wheat","rice","maize","millet","barley","sugarcane","cotton","soybean","groundnut","mustard",
-        "peas","chickpeas","potato","onion","garlic","turmeric","pulses"
+        "peas","chickpeas","potato","onion","garlic","turmeric","pulses","vegetables","fodder","millets","banana","coconut","spices"
     ]
     
     query_lower = query.lower()
@@ -970,7 +1018,7 @@ def process_query(query):
         state["source_documents"] = relevant_docs
         
         # Step 7: Get seasonal information
-        season_info = get_seasonal_info()
+        season_info = get_seasonal_info(query)
         
         # Step 8: Generate agricultural insights
         state["agricultural_alerts"] = get_agricultural_alerts(state["weather_data"], season_info)

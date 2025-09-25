@@ -20,6 +20,7 @@ import hashlib
 import pickle
 from functools import lru_cache
 from bs4 import BeautifulSoup
+import re
 
 import tensorflow as tf
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -320,34 +321,36 @@ def needs_location_detection(query):
 
 def extract_location_from_query(query):
     """Extract location from query if explicitly mentioned"""
-    query_lower = query.lower()
+    query_lower = query.lower().strip()
     
     # First, check for special phrases that should NOT be treated as locations
-    special_phrases = ["current location", "my location", "here", "this area", "my area"]
+    special_phrases = ["current location", "my location", "here", "this area", "my area", "is weather"]
     if any(phrase in query_lower for phrase in special_phrases):
         return None
     
-    # Pattern 1: Common location indicators followed by location
-    location_indicators = ["in ", "at ", "near ", "around ", "for ", "of "]
+    logger.info(f"DEBUG: Processing query: '{query_lower}'")
     
-    for indicator in location_indicators:
-        if indicator in query_lower:
-            # Extract the words after the indicator
-            parts = query_lower.split(indicator)
-            if len(parts) > 1:
-                # Take the next 1-2 words as potential location
-                potential_words = parts[1].split()[:2]
-                potential_location = " ".join(potential_words)
-                # Check if it's not a special phrase
-                if len(potential_location) > 2 and potential_location.lower() not in special_phrases:
-                    return potential_location.title()
+    # SPECIAL FIX FOR "weather of agra" PATTERN
+    # Handle the specific case of "weather of [location]"
+    if "weather of " in query_lower:
+        parts = query_lower.split("weather of ")
+        if len(parts) > 1:
+            location_part = parts[1].strip()
+            # Take the first word as location (for "agra")
+            potential_location = location_part.split()[0] if location_part.split() else ""
+            potential_location = potential_location.rstrip('.,!?;')
+            
+            logger.info(f"DEBUG: 'weather of' pattern found. Potential location: '{potential_location}'")
+            
+            if len(potential_location) > 1:
+                logger.info(f"DEBUG: Returning location from 'weather of' pattern: '{potential_location.title()}'")
+                return potential_location.title()
     
-    # Pattern 2: Direct weather/temperature queries about a place
+    # Pattern 1: Direct weather/temperature queries about a place
     weather_patterns = [
         "temperature of ",
         "weather in ",
         "weather at ",
-        "weather of ",
         "forecast for ",
         "humidity in ",
         "rain in "
@@ -355,32 +358,74 @@ def extract_location_from_query(query):
     
     for pattern in weather_patterns:
         if pattern in query_lower:
-            parts = query_lower.split(pattern)
-            if len(parts) > 1:
-                potential_words = parts[1].split()[:2]
-                potential_location = " ".join(potential_words)
-                # Check if it's not a special phrase
-                if len(potential_location) > 2 and potential_location.lower() not in special_phrases:
+            # Extract text after the pattern
+            start_index = query_lower.find(pattern) + len(pattern)
+            remaining_text = query_lower[start_index:].strip()
+            
+            if remaining_text:
+                # Take the first 1-2 words as potential location
+                potential_words = remaining_text.split()[:2]
+                potential_location = " ".join(potential_words).strip()
+                potential_location = potential_location.rstrip('.,!?;')
+                
+                # Remove question words
+                question_words = ["what", "is", "the", "a", "an", "for", "today", "now"]
+                location_words = [word for word in potential_location.split() if word not in question_words]
+                potential_location = " ".join(location_words).strip()
+                
+                logger.info(f"DEBUG: Pattern '{pattern}' found. Potential location: '{potential_location}'")
+                
+                if len(potential_location) > 1:
+                    logger.info(f"DEBUG: Returning location: '{potential_location.title()}'")
+                    return potential_location.title()
+    
+    # Pattern 2: Common location indicators followed by location
+    location_indicators = ["in ", "at ", "near ", "around ", "for ", "of "]
+    
+    for indicator in location_indicators:
+        if indicator in query_lower:
+            start_index = query_lower.find(indicator) + len(indicator)
+            remaining_text = query_lower[start_index:].strip()
+            
+            if remaining_text:
+                potential_words = remaining_text.split()[:2]
+                potential_location = " ".join(potential_words).strip()
+                potential_location = potential_location.rstrip('.,!?;')
+                
+                question_words = ["what", "is", "the", "a", "an", "for", "today", "now"]
+                location_words = [word for word in potential_location.split() if word not in question_words]
+                potential_location = " ".join(location_words).strip()
+                
+                logger.info(f"DEBUG: Indicator '{indicator}' found. Potential location: '{potential_location}'")
+                
+                if len(potential_location) > 1:
+                    logger.info(f"DEBUG: Returning location: '{potential_location.title()}'")
                     return potential_location.title()
     
     # Pattern 3: Check for common Indian city names anywhere in query
     cities = ["delhi", "mumbai", "chennai", "kolkata", "bangalore", "hyderabad", 
-                "pune", "jaipur", "ahmedabad", "lucknow", "kanpur", "nagpur", 
-                "indore", "thane", "bhopal", "visakhapatnam", "patna", "ludhiana",
-                "agra", "nashik", "faridabad", "meerut", "rajkot", "varanasi",
-                "srinagar", "amritsar", "allahabad", "howrah", "gwalior", "jodhpur",
-                "raipur", "kota", "chandigarh", "mysore", "bareilly", "guwahati",
-                "jammu", "hubli", "solapur", "trivandrum", "kochi", "coimbatore",
-                "madurai", "jabalpur", "asansol", "dhanbad", "vellore", "ajmer",
-                "kolhapur", "shillong", "ulhasnagar", "jamnagar", "sangli", "bhilai",
-                "guntur", "amravati", "noida", "bhagalpur", "warangal", "ranchi",
-                "kurnool", "gurgaon", "gurugram", "nanded", "dehradun", "durgapur",
-                "ajmer", "kakinada", "nellore", "tiruchirappalli", "ujjain", "muzaffarnagar",]
+              "pune", "jaipur", "ahmedabad", "lucknow", "kanpur", "nagpur", 
+              "indore", "thane", "bhopal", "visakhapatnam", "patna", "ludhiana",
+              "agra", "nashik", "faridabad", "meerut", "rajkot", "varanasi",
+              "srinagar", "amritsar", "allahabad", "howrah", "gwalior", "jodhpur",
+              "raipur", "kota", "chandigarh", "mysore", "bareilly", "guwahati",
+              "jammu", "hubli", "solapur", "trivandrum", "kochi", "coimbatore",
+              "madurai", "jabalpur", "asansol", "dhanbad", "vellore", "ajmer",
+              "kolhapur", "shillong", "ulhasnagar", "jamnagar", "sangli", "bhilai",
+              "guntur", "amravati", "noida", "bhagalpur", "warangal", "ranchi",
+              "kurnool", "gurgaon", "gurugram", "nanded", "dehradun", "durgapur",
+              "kakinada", "nellore", "tiruchirappalli", "ujjain", "muzaffarnagar"]
     
     for city in cities:
         if city in query_lower:
-            return city.title()
+            # Make sure it's not part of another word
+            words = query_lower.split()
+            for word in words:
+                if city == word:
+                    logger.info(f"DEBUG: City '{city}' found in query. Returning: '{city.title()}'")
+                    return city.title()
     
+    logger.info("DEBUG: No location found in query")
     return None
 
 def is_poor_answer(answer):
@@ -689,7 +734,7 @@ def handle_special_queries(query, location_data, weather_data):
             humidity = weather_data_for_location.get('humidity', 'N/A')
             return f"Weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%."
         else:
-            return f"Could not retrieve weather data for {extracted_location}."
+            return f"Could not retrieve weather data for {extracted_location}. Please check if the city name is correct and your OPENWEATHER_API_KEY is valid."
     
     # If it's a weather query without agricultural context but no specific location
     elif is_weather_query and not is_agricultural_query and not extracted_location:
@@ -873,7 +918,7 @@ def is_agricultural_query(query):
         "agricultural policy", "agricultural economics", "food security", "rural development",
         "agricultural extension", "agricultural education", "agricultural marketing","sow",
         "wheat","rice","maize","millet","barley","sugarcane","cotton","soybean","groundnut","mustard",
-        "peas","chickpeas","potato","onion","garlic","turmeric","pulses","vegetables","fodder","millets","banana","coconut","spices"
+        "peas","chickpeas","potato","onion","garlic","turmeric","pulses","vegetables","fodder","millets","banana","coconut","spices","jute"
     ]
     
     query_lower = query.lower()
@@ -893,6 +938,71 @@ def is_agricultural_query(query):
     
     return False
 
+def normalize_repeated_characters(text):
+    """Normalize repeated characters in text (e.g., 'heelllllo' -> 'hello')"""
+    # This regex pattern finds characters repeated 2 or more times and reduces them to single occurrence
+    normalized_text = re.sub(r'(.)\1+', r'\1', text)
+    return normalized_text
+
+def is_greeting_query(query):
+    """Determine if the query is a greeting"""
+    greeting_keywords = [
+        "hello", "hi", "hey", "greetings", "good morning", "good afternoon", 
+        "good evening", "howdy", "what's up", "sup", "yo", "hola", "namaste",
+        "namaskar", "hi there", "hello there", "hey there"
+    ]
+    
+    # Normalize the query by removing repeated characters
+    normalized_query = normalize_repeated_characters(query.lower().strip())
+    
+    # Check for exact matches or greeting patterns
+    if normalized_query in greeting_keywords:
+        return True
+    
+    # Check if normalized query starts with greeting words
+    for greeting in greeting_keywords:
+        if normalized_query.startswith(greeting):
+            return True
+    
+    # Additional pattern matching for common greeting variations
+    greeting_patterns = [
+        r'^hi+$', r'^hello+$', r'^hey+$', r'^he+l+o+$', r'^h+i+$', r'^h+e+y+$'
+    ]
+    
+    for pattern in greeting_patterns:
+        if re.match(pattern, query.lower().strip()):
+            return True
+    
+    return False
+
+def handle_greeting_query(query):
+    """Handle greeting queries with a friendly response"""
+    # Normalize the query to handle repeated characters
+    normalized_query = normalize_repeated_characters(query.lower().strip())
+    
+    greetings = [
+        "Hello! 👋 I'm your Agro Assistant, here to help with all your farming questions!",
+        "Hi there! 🌱 I'm your farming assistant. How can I help you today?",
+        "Hey! 👨‍🌾 I'm your agricultural assistant. What farming topic can I help you with?",
+        "Greetings! 🌾 I'm here to assist with crops, weather, and farming advice!",
+        "Hello farmer! 🚜 How can I help with your agricultural questions today?",
+        "Hi! 🌻 Welcome to your farming assistant. What would you like to know about agriculture?",
+        "Hey there! 🌽 Ready to talk farming? How can I assist you today?"
+    ]
+    
+    # Choose a random greeting
+    import random
+    response = random.choice(greetings)
+    
+    return {
+        "query": query,
+        "answer": response,
+        "llm_source": "System Greeting",
+        "sources": [],
+        "agricultural_alerts": [],
+        "crop_suggestions": []
+    }
+
 def handle_non_agricultural_query(query):
     """Handle queries that are not related to agriculture"""
     return {
@@ -908,7 +1018,11 @@ def process_query(query):
     """Main function to process a user query"""
     logger.info(f"Processing query: {query}")
     
-    # First check if this is an agricultural query
+    # First check if this is a greeting query
+    if is_greeting_query(query):
+        return handle_greeting_query(query)
+    
+    # Then check if this is an agricultural query
     if not is_agricultural_query(query):
         return handle_non_agricultural_query(query)
     
@@ -938,15 +1052,30 @@ def process_query(query):
         # Step 2: Check if location detection is needed
         state["needs_location"] = needs_location_detection(query)
         
-        # Step 3: Handle location detection and weather data
+        # Step 3: Extract location from query FIRST (before any detection)
+        extracted_location = extract_location_from_query(query)
+        query_lower = query.lower()
+        is_weather_query = any(term in query_lower for term in ["weather", "temperature", "forecast", "rain", "humidity"])
+        
+        logger.info(f"DEBUG: Query: '{query}'")
+        logger.info(f"DEBUG: Extracted location: '{extracted_location}'")
+        logger.info(f"DEBUG: Is weather query: {is_weather_query}")
+        
+        # Step 4: Handle location detection and weather data
         if state["needs_location"]:
-            # FIRST, check for special location phrases like "current location"
-            query_lower = query.lower()
-            special_location_phrases = ["current location", "my location", "here", "this area", "my area"]
-            is_special_location_query = any(phrase in query_lower for phrase in special_location_phrases)
+            # SPECIAL FIX: If we extracted a location from query, use it immediately
+            if extracted_location and is_weather_query:
+                logger.info(f"Using extracted location for weather query: {extracted_location}")
+                state["user_location"] = {
+                    "city": extracted_location,
+                    "detected_via": "query extraction"
+                }
+                # Get weather for the extracted location
+                weather_data = get_weather_data(None, None, extracted_location)
+                state["weather_data"] = weather_data
             
-            if is_special_location_query:
-                # For special location queries, detect the user's physical location
+            # Special handling for "current location", "my location", etc.
+            elif any(phrase in query_lower for phrase in ["current location", "my location", "here", "this area", "my area"]):
                 logger.info("Special location query detected. Detecting user location...")
                 location_data = detect_user_location()
                 state["user_location"] = location_data
@@ -960,37 +1089,36 @@ def process_query(query):
                         location_data.get("city", "Unknown")
                     )
                     state["weather_data"] = weather_data
-            else:
-                # For regular queries, extract location from query if mentioned
-                extracted_location = extract_location_from_query(query)
-                
-                if extracted_location:
-                    # Use the location extracted from the query
-                    logger.info(f"Using location extracted from query: {extracted_location}")
-                    state["user_location"] = {
-                        "city": extracted_location,
-                        "detected_via": "query extraction"
-                    }
-                    # Get weather for the extracted location
-                    weather_data = get_weather_data(None, None, extracted_location)
-                    state["weather_data"] = weather_data
-                else:
-                    # No location in query, detect the user's physical location
-                    logger.info("No location found in query. Detecting user location...")
-                    location_data = detect_user_location()
-                    state["user_location"] = location_data
-                    
-                    # Get weather data for the user's detected location
-                    if "error" not in location_data:
-                        logger.info("Fetching weather data for user location...")
-                        weather_data = get_weather_data(
-                            location_data.get("latitude"),
-                            location_data.get("longitude"),
-                            location_data.get("city", "Unknown")
-                        )
-                        state["weather_data"] = weather_data
             
-        # Step 4: Check for special queries (only pure location/weather queries)
+            # For other location-based queries with extracted location
+            elif extracted_location:
+                logger.info(f"Using location extracted from query: {extracted_location}")
+                state["user_location"] = {
+                    "city": extracted_location,
+                    "detected_via": "query extraction"
+                }
+                # Get weather for the extracted location
+                weather_data = get_weather_data(None, None, extracted_location)
+                state["weather_data"] = weather_data
+            
+            # Default: detect user location via IP
+            else:
+                logger.info("No location found in query. Detecting user location...")
+                location_data = detect_user_location()
+                state["user_location"] = location_data
+                
+                # Get weather data for the user's detected location
+                if "error" not in location_data:
+                    logger.info("Fetching weather data for user location...")
+                    weather_data = get_weather_data(
+                        location_data.get("latitude"),
+                        location_data.get("longitude"),
+                        location_data.get("city", "Unknown")
+                    )
+                    state["weather_data"] = weather_data
+        
+        # Step 5: Check for special queries (only pure location/weather queries)
+        # Use the already determined location and weather data
         special_answer = handle_special_queries(query, state["user_location"], state["weather_data"])
         if special_answer:
             return {
@@ -1000,31 +1128,30 @@ def process_query(query):
                 "sources": [],
                 "location": state["user_location"] if "error" not in state["user_location"] else {},
                 "weather": state["weather_data"] if "error" not in state["weather_data"] else {},
-                "season": get_seasonal_info(),
+                "season": get_seasonal_info(query),
                 "agricultural_alerts": [],
                 "crop_suggestions": []
             }
         
-        # Rest of the function remains the same...
-        # Step 5: Check cache before processing
+        # Step 6: Check cache before processing
         query_hash = get_query_hash(query, state["user_location"], state["weather_data"])
         cached_response = check_cache(query_hash)
         if cached_response:
             return cached_response
         
-        # Step 6: Retrieve relevant documents
+        # Step 7: Retrieve relevant documents
         logger.info("Retrieving relevant documents...")
         relevant_docs = retrieve_relevant_documents(vector_store, query, COSINE_THRESHOLD)
         state["source_documents"] = relevant_docs
         
-        # Step 7: Get seasonal information
+        # Step 8: Get seasonal information
         season_info = get_seasonal_info(query)
         
-        # Step 8: Generate agricultural insights
+        # Step 9: Generate agricultural insights
         state["agricultural_alerts"] = get_agricultural_alerts(state["weather_data"], season_info)
         state["crop_suggestions"] = get_crop_suggestions(state["user_location"], state["weather_data"], season_info)
         
-        # Step 9: Generate answer with Groq (primary)
+        # Step 10: Generate answer with Groq (primary)
         logger.info("Generating answer with Groq...")
         try:
             answer = generate_groq_answer(
@@ -1067,7 +1194,7 @@ def process_query(query):
         
         state["answer"] = answer
         
-        # Step 10: Format response and save to cache
+        # Step 11: Format response and save to cache
         response = format_response(state, season_info)
         save_to_cache(query_hash, response)
         
@@ -1189,4 +1316,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

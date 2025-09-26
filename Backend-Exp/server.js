@@ -51,6 +51,9 @@ app.use(express.urlencoded({ extended: true }));
 //     next();
 // });
 
+app.head('/', (req, res) => {
+  res.status(200).end();
+});
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 

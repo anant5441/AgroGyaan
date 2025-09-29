@@ -242,7 +242,7 @@ def get_weather_data(latitude, longitude, location_name):
             logger.error(error_msg)
             return {"error": error_msg}
     except Exception as e:
-        error_msg = f"Weather API error: {str(e)}"
+        error_msg = f"Weater API error: {str(e)}"
         logger.error(error_msg)
         return {"error": error_msg}
 
@@ -537,7 +537,7 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
         if crop_suggestions:
             crop_context = f"Crop Suggestions: {', '.join(crop_suggestions)}"
         
-        # Create enhanced prompt with emphasis on conciseness
+        # Create enhanced prompt with emphasis on conciseness and references
         prompt_template = PromptTemplate(
             input_variables=["query", "context", "location", "weather", "season", "alerts", "crops"],
             template="""
@@ -564,6 +564,9 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
             6. For crop recommendations, suggest specific crops based on location, weather and season
             7. Always mention the location and weather conditions in your response
             8. Include relevant agricultural alerts and crop suggestions if available
+            9. Ensure the answer is complete and doesn't end abruptly
+            10. DO NOT mention "Document information" or "Based on documents" in your answer
+            11. Just provide the answer naturally without referencing the source documents
 
             ANSWER:
             """
@@ -628,7 +631,7 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
         if crop_suggestions:
             crop_context = f"Crop Suggestions: {', '.join(crop_suggestions)}"
         
-        # Create prompt with emphasis on conciseness
+        # Create prompt with emphasis on conciseness and references
         prompt = f"""
         You are an expert agricultural assistant. Provide concise, practical answers (max 150 words).
 
@@ -653,6 +656,9 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
         6. For crop recommendations, suggest specific crops based on location, weather and season
         7. Always mention the location and weather conditions in your response
         8. Include relevant agricultural alerts and crop suggestions if available
+        9. Ensure the answer is complete and doesn't end abruptly
+        10. DO NOT mention "Document information" or "Based on documents" in your answer
+        11. Just provide the answer naturally without referencing the source documents
 
         ANSWER:
         """
@@ -1120,6 +1126,59 @@ def handle_non_agricultural_query(query):
         "crop_suggestions": []
     }
 
+def add_references_to_answer(answer, source_documents):
+    """Add reference information to the answer from top 2 documents"""
+    if not source_documents:
+        return answer
+    
+    # Get unique source files from top 2 documents
+    unique_sources = []
+    seen_files = set()
+    
+    for doc in source_documents[:2]:  # Only top 2 documents
+        source_file = doc.metadata.get('source', '')
+        if source_file and source_file not in seen_files:
+            # Extract just the filename without path
+            filename = os.path.basename(source_file)
+            unique_sources.append(filename)
+            seen_files.add(source_file)
+    
+    # Add reference information if we have sources
+    if unique_sources:
+        ref_text = "Reference: " + ", ".join(unique_sources)
+        # Ensure the answer ends with a proper sentence before adding reference
+        if answer and not answer.endswith(('.', '!', '?')):
+            answer += '.'
+        answer += f" {ref_text}"
+    
+    return answer
+
+def ensure_complete_sentences(text):
+    """Ensure the text ends with complete sentences"""
+    if not text:
+        return text
+    
+    # Remove trailing whitespace
+    text = text.strip()
+    
+    # If the text already ends with proper punctuation, return as is
+    if text.endswith(('.', '!', '?')):
+        return text
+    
+    # Find the last sentence ending
+    last_period = text.rfind('.')
+    last_question = text.rfind('?')
+    last_exclamation = text.rfind('!')
+    
+    last_end = max(last_period, last_question, last_exclamation)
+    
+    if last_end > 0:
+        # Return up to the last complete sentence
+        return text[:last_end + 1]
+    else:
+        # If no sentence ending found, add a period
+        return text + '.'
+
 def process_regular_agricultural_query(query):
     """Process regular agricultural queries (the existing logic)"""
     # Initialize state
@@ -1288,9 +1347,12 @@ def process_regular_agricultural_query(query):
             )
             state["llm_source"] = "Gemini (Fallback)"
         
+        # Step 11: Add references and ensure complete sentences
+        answer = add_references_to_answer(answer, state["source_documents"])
+        answer = ensure_complete_sentences(answer)
         state["answer"] = answer
         
-        # Step 11: Format response and save to cache
+        # Step 12: Format response and save to cache
         response = format_response(state, season_info)
         save_to_cache(query_hash, response)
         

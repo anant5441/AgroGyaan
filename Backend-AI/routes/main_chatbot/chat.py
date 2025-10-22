@@ -242,7 +242,7 @@ def get_weather_data(latitude, longitude, location_name):
             logger.error(error_msg)
             return {"error": error_msg}
     except Exception as e:
-        error_msg = f"Weather API error: {str(e)}"
+        error_msg = f"Weater API error: {str(e)}"
         logger.error(error_msg)
         return {"error": error_msg}
 
@@ -330,7 +330,6 @@ def extract_location_from_query(query):
     
     logger.info(f"DEBUG: Processing query: '{query_lower}'")
     
-    # SPECIAL FIX FOR "weather of agra" PATTERN
     # Handle the specific case of "weather of [location]"
     if "weather of " in query_lower:
         parts = query_lower.split("weather of ")
@@ -538,7 +537,7 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
         if crop_suggestions:
             crop_context = f"Crop Suggestions: {', '.join(crop_suggestions)}"
         
-        # Create enhanced prompt with emphasis on conciseness
+        # Create enhanced prompt with emphasis on conciseness and references
         prompt_template = PromptTemplate(
             input_variables=["query", "context", "location", "weather", "season", "alerts", "crops"],
             template="""
@@ -565,6 +564,9 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
             6. For crop recommendations, suggest specific crops based on location, weather and season
             7. Always mention the location and weather conditions in your response
             8. Include relevant agricultural alerts and crop suggestions if available
+            9. Ensure the answer is complete and doesn't end abruptly
+            10. DO NOT mention "Document information" or "Based on documents" in your answer
+            11. Just provide the answer naturally without referencing the source documents
 
             ANSWER:
             """
@@ -629,7 +631,7 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
         if crop_suggestions:
             crop_context = f"Crop Suggestions: {', '.join(crop_suggestions)}"
         
-        # Create prompt with emphasis on conciseness
+        # Create prompt with emphasis on conciseness and references
         prompt = f"""
         You are an expert agricultural assistant. Provide concise, practical answers (max 150 words).
 
@@ -654,6 +656,9 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
         6. For crop recommendations, suggest specific crops based on location, weather and season
         7. Always mention the location and weather conditions in your response
         8. Include relevant agricultural alerts and crop suggestions if available
+        9. Ensure the answer is complete and doesn't end abruptly
+        10. DO NOT mention "Document information" or "Based on documents" in your answer
+        11. Just provide the answer naturally without referencing the source documents
 
         ANSWER:
         """
@@ -901,7 +906,6 @@ def get_crop_suggestions(location_data, weather_data, season_info):
     # Limit to top 5 suggestions
     return suggestions[:5]
 
-
 def is_agricultural_query(query):
     """Determine if the query is related to agriculture"""
     agricultural_keywords = [
@@ -918,7 +922,14 @@ def is_agricultural_query(query):
         "agricultural policy", "agricultural economics", "food security", "rural development",
         "agricultural extension", "agricultural education", "agricultural marketing","sow",
         "wheat","rice","maize","millet","barley","sugarcane","cotton","soybean","groundnut","mustard",
-        "peas","chickpeas","potato","onion","garlic","turmeric","pulses","vegetables","fodder","millets","banana","coconut","spices","jute"
+        "peas","chickpeas","potato","onion","garlic","turmeric","pulses","vegetables","fodder","millets",
+        "banana","coconut","spices","jute","agricultural alert", "agricultural alerts", "alert", "alerts", "today", "today's",
+        "condition", "conditions", "agricultural advice", "farming advice", "crop advice",
+        "agricultural recommendation", "farming recommendation", "crop recommendation",
+        "agricultural tip", "farming tip", "crop tip", "agricultural suggestion", 
+        "farming suggestion", "crop suggestion", "agricultural update", "farming update",
+        "crop update", "agricultural report", "farming report", "crop report","humidity", 
+        "high humidity", "low humidity", "humidity alert", "vegetable farming", "summer", "summers"
     ]
     
     query_lower = query.lower()
@@ -936,6 +947,16 @@ def is_agricultural_query(query):
     if any(keyword in query_lower for keyword in location_weather_keywords):
         return True
     
+    agricultural_compound_terms = [
+        "high humidity", "low humidity", "humidity alert", "temperature alert", 
+        "rain alert", "weather alert", "farm alert", "crop alert", "vegetable farm",
+        "farming condition", "agricultural condition", "crop is best", "best crop",
+        "which crop", "what to grow", "what to plant"
+    ]
+    
+    if any(term in query_lower for term in agricultural_compound_terms):
+        return True
+    
     return False
 
 def normalize_repeated_characters(text):
@@ -945,38 +966,129 @@ def normalize_repeated_characters(text):
     return normalized_text
 
 def is_greeting_query(query):
-    """Determine if the query is a greeting"""
-    greeting_keywords = [
+    """Determine if the query is purely a greeting without agricultural content"""
+    # Normalize the query
+    normalized_query = query.lower().strip()
+    
+    # Common greeting patterns (exact matches or starts with)
+    exact_greetings = [
         "hello", "hi", "hey", "greetings", "good morning", "good afternoon", 
         "good evening", "howdy", "what's up", "sup", "yo", "hola", "namaste",
-        "namaskar", "hi there", "hello there", "hey there"
+        "namaskar", "hi there", "hello there", "hey there", "khamba ghani", 
+        "ram ram", "pranam", "good day", "goodnight", "good night"
     ]
     
-    # Normalize the query by removing repeated characters
-    normalized_query = normalize_repeated_characters(query.lower().strip())
-    
-    # Check for exact matches or greeting patterns
-    if normalized_query in greeting_keywords:
+    # Check for exact matches
+    if normalized_query in exact_greetings:
         return True
     
-    # Check if normalized query starts with greeting words
-    for greeting in greeting_keywords:
-        if normalized_query.startswith(greeting):
-            return True
+    # Check if query starts with greeting words
+    for greeting in exact_greetings:
+        if normalized_query.startswith(greeting + " ") or normalized_query == greeting:
+            # Check if there's meaningful content after the greeting
+            remaining_text = normalized_query[len(greeting):].strip()
+            # If only punctuation or very short text remains, it's a pure greeting
+            if len(remaining_text) <= 2 or not any(c.isalpha() for c in remaining_text):
+                return True
     
     # Additional pattern matching for common greeting variations
     greeting_patterns = [
-        r'^hi+$', r'^hello+$', r'^hey+$', r'^he+l+o+$', r'^h+i+$', r'^h+e+y+$'
+        r'^hi+$', r'^hello+$', r'^hey+$', r'^he+l+o+$', r'^h+i+$', r'^h+e+y+$',
+        r'^hi+\s*$', r'^hello+\s*$', r'^hey+\s*$'
     ]
     
     for pattern in greeting_patterns:
-        if re.match(pattern, query.lower().strip()):
+        if re.match(pattern, normalized_query):
             return True
     
     return False
 
+def has_agricultural_content_after_greeting(query):
+    """Check if there's agricultural content after the greeting"""
+    # Normalize the query first
+    normalized_query = query.lower().strip()
+    
+    # If it's already classified as a pure greeting (no meaningful content), return False
+    if is_greeting_query(query):
+        return False
+    
+    # Patterns to remove (greeting patterns)
+    patterns_to_remove = [
+        r'^hi+\s+', r'^hello+\s+', r'^hey+\s+', r'^greetings\s+',
+        r'^good morning\s+', r'^good afternoon\s+', r'^good evening\s+',
+        r'^howdy\s+', r'^what\'s up\s+', r'^sup\s+', r'^yo\s+', 
+        r'^hola\s+', r'^namaste\s+', r'^namaskar\s+', r'^hi there\s+',
+        r'^hello there\s+', r'^hey there\s+', r'^khamba ghani\s+',
+        r'^ram ram\s+', r'^pranam\s+'
+    ]
+    
+    # Remove greeting patterns
+    agricultural_part = normalized_query
+    for pattern in patterns_to_remove:
+        agricultural_part = re.sub(pattern, '', agricultural_part).strip()
+    
+    # If the agricultural part is the same as original (no greeting removed) 
+    # and it's agricultural, return True
+    if agricultural_part == normalized_query:
+        return is_agricultural_query(agricultural_part)
+    
+    # If there's NO meaningful content left after removing greetings
+    if len(agricultural_part) <= 2 or not any(c.isalpha() for c in agricultural_part):
+        return False
+    
+    # Check if the remaining content is agricultural
+    return is_agricultural_query(agricultural_part)
+
+def extract_agricultural_content(query):
+    """Extract the agricultural part from a mixed query"""
+    query_lower = query.lower()
+    
+    # Common greeting patterns to remove
+    patterns_to_remove = [
+        r'^hi+\s+', r'^hello+\s+', r'^hey+\s+', r'^greetings\s+',
+        r'^good morning\s+', r'^good afternoon\s+', r'^good evening\s+',
+        r'^howdy\s+', r'^what\'s up\s+', r'^sup\s+', r'^yo\s+', 
+        r'^hola\s+', r'^namaste\s+', r'^namaskar\s+', r'^hi there\s+',
+        r'^hello there\s+', r'^hey there\s+', r'^khamba ghani\s+',
+        r'^ram ram\s+', r'^pranam\s+'
+    ]
+    
+    # Remove greeting patterns
+    agricultural_part = query_lower
+    for pattern in patterns_to_remove:
+        agricultural_part = re.sub(pattern, '', agricultural_part).strip()
+    
+    # Clean up common follow-up words
+    follow_up_words = ['there', 'sir', 'madam', 'friend', 'dear']
+    words = agricultural_part.split()
+    if words and words[0] in follow_up_words:
+        agricultural_part = ' '.join(words[1:]).strip()
+    
+    # If we removed everything or the query doesn't start with a greeting,
+    # return the original query but cleaned
+    if not agricultural_part or agricultural_part == query_lower:
+        # Clean the original query by removing excessive characters
+        agricultural_part = normalize_repeated_characters(query.strip())
+    
+    return agricultural_part.capitalize() if agricultural_part else query
+
+def get_friendly_greeting():
+    """Get a friendly greeting response"""
+    greetings = [
+        "Hello! 👋 Thanks for your farming question!",
+        "Hi there! 🌱 Great question about agriculture!",
+        "Hey! 👨‍🌾 Wonderful farming question! Here's my advice:",
+        "Greetings! 🌾 Thanks for asking about farming!",
+        "Hello farmer! 🚜 Excellent question! Here's what I recommend:",
+        "Hi! 🌻 Great to hear from you! Here's my farming advice:",
+        "Hey there! 🌽 Thanks for your agricultural question!"
+    ]
+    
+    import random
+    return random.choice(greetings)
+
 def handle_greeting_query(query):
-    """Handle greeting queries with a friendly response"""
+    """Handle pure greeting queries with a friendly response"""
     # Normalize the query to handle repeated characters
     normalized_query = normalize_repeated_characters(query.lower().strip())
     
@@ -1014,18 +1126,61 @@ def handle_non_agricultural_query(query):
         "crop_suggestions": []
     }
 
-def process_query(query):
-    """Main function to process a user query"""
-    logger.info(f"Processing query: {query}")
+def add_references_to_answer(answer, source_documents):
+    """Add reference information to the answer from top 2 documents"""
+    if not source_documents:
+        return answer
     
-    # First check if this is a greeting query
-    if is_greeting_query(query):
-        return handle_greeting_query(query)
+    # Get unique source files from top 2 documents
+    unique_sources = []
+    seen_files = set()
     
-    # Then check if this is an agricultural query
-    if not is_agricultural_query(query):
-        return handle_non_agricultural_query(query)
+    for doc in source_documents[:2]:  # Only top 2 documents
+        source_file = doc.metadata.get('source', '')
+        if source_file and source_file not in seen_files:
+            # Extract just the filename without path
+            filename = os.path.basename(source_file)
+            unique_sources.append(filename)
+            seen_files.add(source_file)
     
+    # Add reference information if we have sources
+    if unique_sources:
+        ref_text = "Reference: " + ", ".join(unique_sources)
+        # Ensure the answer ends with a proper sentence before adding reference
+        if answer and not answer.endswith(('.', '!', '?')):
+            answer += '.'
+        answer += f" {ref_text}"
+    
+    return answer
+
+def ensure_complete_sentences(text):
+    """Ensure the text ends with complete sentences"""
+    if not text:
+        return text
+    
+    # Remove trailing whitespace
+    text = text.strip()
+    
+    # If the text already ends with proper punctuation, return as is
+    if text.endswith(('.', '!', '?')):
+        return text
+    
+    # Find the last sentence ending
+    last_period = text.rfind('.')
+    last_question = text.rfind('?')
+    last_exclamation = text.rfind('!')
+    
+    last_end = max(last_period, last_question, last_exclamation)
+    
+    if last_end > 0:
+        # Return up to the last complete sentence
+        return text[:last_end + 1]
+    else:
+        # If no sentence ending found, add a period
+        return text + '.'
+
+def process_regular_agricultural_query(query):
+    """Process regular agricultural queries (the existing logic)"""
     # Initialize state
     state = AgentState(
         query=query,
@@ -1192,9 +1347,12 @@ def process_query(query):
             )
             state["llm_source"] = "Gemini (Fallback)"
         
+        # Step 11: Add references and ensure complete sentences
+        answer = add_references_to_answer(answer, state["source_documents"])
+        answer = ensure_complete_sentences(answer)
         state["answer"] = answer
         
-        # Step 11: Format response and save to cache
+        # Step 12: Format response and save to cache
         response = format_response(state, season_info)
         save_to_cache(query_hash, response)
         
@@ -1204,6 +1362,52 @@ def process_query(query):
         error_msg = f"Error processing query: {str(e)}"
         logger.error(error_msg)
         return {"error": error_msg}
+
+def process_agricultural_query_with_greeting(query):
+    """Process queries that start with greeting but have agricultural content"""
+    # Extract the agricultural part for processing
+    agricultural_part = extract_agricultural_content(query)
+    
+    # Process the agricultural part normally
+    response = process_regular_agricultural_query(agricultural_part)
+    
+    # Add a friendly greeting to the response
+    if "error" not in response:
+        greeting = get_friendly_greeting()
+        response["answer"] = f"{greeting}\n\n{response['answer']}"
+        response["llm_source"] = f"System Greeting + {response['llm_source']}"
+    
+    return response
+
+def process_query(query):
+    """Main function to process a user query"""
+    logger.info(f"Processing query: {query}")
+    
+    normalized_query = query.lower().strip()
+    
+    # First, check if this is a pure greeting
+    if is_greeting_query(query):
+        logger.info("Pure greeting detected")
+        return handle_greeting_query(query)
+    
+    # Then check if this is an agricultural query
+    elif not is_agricultural_query(query):
+        logger.info("Non-agricultural query detected")
+        return handle_non_agricultural_query(query)
+    
+    # Finally, process agricultural queries (which may include greetings + content)
+    else:
+        # Check if it starts with a greeting but has agricultural content
+        # IMPORTANT: Only treat as mixed if we actually found and removed a greeting
+        agricultural_part = extract_agricultural_content(query)
+        has_greeting_removed = agricultural_part.lower() != normalized_query
+        
+        if has_greeting_removed and has_agricultural_content_after_greeting(query):
+            logger.info("Mixed query detected: greeting + agricultural content")
+            return process_agricultural_query_with_greeting(query)
+        else:
+            logger.info("Regular agricultural query detected")
+            return process_regular_agricultural_query(query)
 
 def format_response(state, season_info):
     """Format the final response"""

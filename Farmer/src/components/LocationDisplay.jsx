@@ -5,10 +5,10 @@ import { Card } from "@/components/ui/card";
 const LocationDisplay = () => {
   // Mock data - in real app this would come from geolocation API
   const locationData = {
-    region: "Northern California",
-    weather: "Mediterranean Climate - Dry summers, mild winters",
+    region: "Northern Trichy",
+    weather: "Mediterranean Climate - Dry summers",
     soilType: "Clay Loam - Well-draining, fertile soil",
-    temperature: "22°C",
+    temperature: "29°C",
     humidity: "65%",
     coordinates: "37.7749° N, 122.4194° W"
   };

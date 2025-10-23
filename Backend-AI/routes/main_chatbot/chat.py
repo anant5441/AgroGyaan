@@ -2,6 +2,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
@@ -34,7 +35,6 @@ load_dotenv()
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 PDF_DIR = os.path.join(BASE_DIR, "data")
@@ -43,7 +43,6 @@ CACHE_DIR = os.path.join(BASE_DIR, "cache")
 GROQ_MODEL = "llama-3.1-8b-instant"
 COSINE_THRESHOLD = 0.5
 CACHE_EXPIRY_HOURS = 24  # Cache expiry time in hours
-
 
 
 # Define state
@@ -101,11 +100,116 @@ def create_chunks(documents):
     return text_splitter.split_documents(documents)
 
 def get_embedding_model():
-    """Initialize embedding model"""
-    return HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={'device': 'cpu'}
-    )
+    """Initialize Google Generative AI embedding model"""
+    try:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in environment variables")
+        
+        return GoogleGenerativeAIEmbeddings(
+            model="models/text-embedding-004",
+            google_api_key=api_key
+        )
+    except Exception as e:
+        logger.error(f"Error initializing Google Generative AI embeddings: {str(e)}")
+        raise
+
+def get_embedding_dimensions():
+    """Get the dimensions of Google Generative AI embeddings"""
+    try:
+        embedding_model = get_embedding_model()
+        # Test embedding to get dimensions
+        test_text = "This is a test sentence to get embedding dimensions."
+        embedding = embedding_model.embed_query(test_text)
+        dimensions = len(embedding)
+        logger.info(f"Google Generative AI embedding dimensions: {dimensions}")
+        return dimensions
+    except Exception as e:
+        logger.error(f"Error getting embedding dimensions: {str(e)}")
+        return None
+
+def get_vector_store_stats():
+    """Get statistics about the vector store including total vectors and dimensions"""
+    try:
+        vector_store = get_vector_store()
+        if not vector_store:
+            return {"error": "Vector store not available"}
+        
+        # Get total number of vectors
+        total_vectors = vector_store.index.ntotal
+        
+        # Get embedding dimensions
+        embedding_dimensions = get_embedding_dimensions()
+        
+        stats = {
+            "total_vectors": total_vectors,
+            "embedding_dimensions": embedding_dimensions,
+            "vector_store_size": f"{total_vectors} vectors × {embedding_dimensions} dimensions"
+        }
+        
+        logger.info(f"Vector store stats: {stats}")
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Error getting vector store stats: {str(e)}")
+        return {"error": str(e)}
+
+def display_vector_store_info():
+    """Display vector store information for Pinecone setup"""
+    stats = get_vector_store_stats()
+    
+    if "error" in stats:
+        print(f"❌ Error: {stats['error']}")
+        return
+    
+    print("\n" + "="*50)
+    print("VECTOR STORE INFORMATION FOR PINECONE")
+    print("="*50)
+    print(f"📊 Total Vectors: {stats['total_vectors']}")
+    print(f"📐 Embedding Dimensions: {stats['embedding_dimensions']}")
+    print(f"🔢 Pinecone Dimension Parameter: dimension={stats['embedding_dimensions']}")
+    print("="*50)
+    
+    return stats
+
+def get_pinecone_config():
+    """Get Pinecone configuration parameters"""
+    stats = get_vector_store_stats()
+    
+    if "error" in stats:
+        return {"error": stats["error"]}
+    
+    pinecone_config = {
+        "dimension": stats["embedding_dimensions"],
+        "metric": "cosine",  # Default metric for similarity search
+        "total_vectors": stats["total_vectors"],
+        "embedding_model": "Google Generative AI text-embedding-004"
+    }
+    
+    return pinecone_config
+
+def show_pinecone_setup_guide():
+    """Display Pinecone setup guide with required parameters"""
+    config = get_pinecone_config()
+    
+    if "error" in config:
+        print(f"❌ Error: {config['error']}")
+        return
+    
+    print("\n" + "="*60)
+    print("PINECONE SETUP GUIDE")
+    print("="*60)
+    print(f"📐 Dimension: {config['dimension']}")
+    print(f"📊 Metric: {config['metric']}")
+    print(f"🔢 Total Vectors: {config['total_vectors']}")
+    print(f"🤖 Embedding Model: {config['embedding_model']}")
+    print("\n💡 Pinecone Index Creation Command:")
+    print(f"pinecone.create_index(")
+    print(f"    name='your-index-name',")
+    print(f"    dimension={config['dimension']},")
+    print(f"    metric='{config['metric']}'")
+    print(f")")
+    print("="*60)
 
 def create_vector_store_from_pdfs():
     """Create and persist FAISS vector store from PDFs"""
@@ -123,7 +227,7 @@ def create_vector_store_from_pdfs():
             embedding=embedding_model
         )
         vector_store.save_local(FAISS_DIR)
-        logger.info(f"Created FAISS vector store with {len(chunks)} chunks")
+        logger.info(f"Created FAISS vector store with {len(chunks)} chunks using Google Generative AI embeddings")
         return vector_store
     except Exception as e:
         logger.error(f"Error creating vector store: {str(e)}")
@@ -138,7 +242,7 @@ def load_vector_store():
             embeddings=embedding_model,
             allow_dangerous_deserialization=True
         )
-        logger.info("Loaded existing FAISS vector store")
+        logger.info("Loaded existing FAISS vector store with Google Generative AI embeddings")
         return vector_store
     except Exception as e:
         logger.error(f"Error loading vector store: {str(e)}")
@@ -166,13 +270,13 @@ def get_groq_llm():
 
 def get_gemini_model():
     """Initialize Gemini model for fallback"""
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY not found in environment variables")
+        raise ValueError("GOOGLE_API_KEY not found in environment variables")
     
     try:
         genai.configure(api_key=api_key)
-        return genai.GenerativeModel("gemini-pro")
+        return genai.GenerativeModel("gemini-2.5-pro")
     except Exception as e:
         raise ValueError(f"Failed to initialize Gemini model: {str(e)}")
 
@@ -1491,6 +1595,11 @@ def main():
     # Initialize components
     initialize_components()
     
+    # Display vector store information
+    display_vector_store_info()
+
+    show_pinecone_setup_guide()
+
     print("🌱 Welcome to Agro Assistant!")
     print("I can help with agricultural questions using your documents, location, and weather data.")
     print("Type 'exit' to quit.\n")

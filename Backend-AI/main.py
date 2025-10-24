@@ -4,7 +4,9 @@ from routes.main_chatbot.chat_router import router as chat_router  # Import 'rou
 from routes import organicguide_router
 from routes import marketprice_router
 from routes import crop_recommendation_router
+from routes.main_chatbot.image_processor import get_processor_status
 import os
+import logging
 
 app = FastAPI(title="AI Farming Assistant API")
 
@@ -29,7 +31,34 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Comprehensive health check endpoint"""
+    try:
+        # Check image processor status
+        image_processor_status = get_processor_status()
+        
+        return {
+            "status": "healthy",
+            "service": "AI Farming Assistant API",
+            "version": "2.0.0",
+            "image_processor": image_processor_status,
+            "endpoints_available": [
+                "GET /",
+                "GET /health",
+                "GET /docs",
+                "POST /api/chat",
+                "POST /api/chat-with-image",
+                "GET /api/organic-guide",
+                "GET /api/market-prices",
+                "GET /api/crop-recommendation"
+            ]
+        }
+    except Exception as e:
+        logging.error(f"Health check error: {str(e)}")
+        return {
+            "status": "degraded",
+            "service": "AI Farming Assistant API",
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     import uvicorn

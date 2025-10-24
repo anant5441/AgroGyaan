@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageCircle, X, Send, Bot, User, Trash2 } from "lucide-react";
+import { MessageCircle, X, Send, Bot, User, Trash2, Image, XCircle } from "lucide-react";
 
 export function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -8,15 +8,18 @@ export function AIAssistant() {
     {
       id: "1",
       type: "bot",
-      content: "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, market prices, or any other farming queries.",
+      content: "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, or any other farming queries. You can also upload images of crops for analysis.",
       timestamp: new Date(),
       isStreaming: false,
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Auto scroll when messages update and focus input when opened
   useEffect(() => {
@@ -29,13 +32,48 @@ export function AIAssistant() {
     }
   }, [messages, isOpen]);
 
+  const handleImageSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Check if file is an image
+      if (!file.type.match('image.*')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Please select an image smaller than 5MB');
+        return;
+      }
+
+      setSelectedImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSendMessage = async () => {
-    if (!message.trim() || isLoading) return;
+    if ((!message.trim() && !selectedImage) || isLoading) return;
 
     const newMessage = {
       id: Date.now().toString(),
       type: "user",
       content: message,
+      image: imagePreview,
       timestamp: new Date(),
       isStreaming: false,
     };
@@ -45,12 +83,35 @@ export function AIAssistant() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/chat", {
-        method: "POST",
-        headers: {
+      let endpoint = "http://localhost:8000/api/chat";
+      let body;
+      let headers = {};
+
+      if (selectedImage) {
+        // Use image endpoint with FormData
+        endpoint = "http://localhost:8000/api/chat-with-image";
+        const formData = new FormData();
+        
+        if (message.trim()) {
+          formData.append("query", message);
+        }
+        formData.append("image", selectedImage);
+        
+        body = formData;
+        // Don't set Content-Type header for FormData - browser will set it with boundary
+      } else {
+        // Use text-only endpoint with JSON
+        endpoint = "http://localhost:8000/api/chat";
+        body = JSON.stringify({ query: message });
+        headers = {
           "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: message }),
+        };
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: headers,
+        body: body,
       });
 
       if (!response.ok) {
@@ -71,8 +132,7 @@ export function AIAssistant() {
 
       setMessages((prev) => [...prev, botMessage]);
       
-      // Stream the response character by character
-      const responseText = data.answer;
+      const responseText = data.answer || data.error || "No response received";
       for (let i = 0; i <= responseText.length; i++) {
         await new Promise(resolve => setTimeout(resolve, 15));
         setMessages(prev =>
@@ -107,6 +167,7 @@ export function AIAssistant() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      removeImage(); // Clear image after sending
     }
   };
 
@@ -122,12 +183,13 @@ export function AIAssistant() {
       {
         id: "1",
         type: "bot",
-        content: "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, market prices, or any other farming queries.",
+        content: "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, market prices, or any other farming queries. You can also upload images of crops for analysis.",
         timestamp: new Date(),
         isStreaming: false,
       },
     ]);
     setIsLoading(false);
+    removeImage();
   };
 
   const handleClose = () => {
@@ -147,29 +209,50 @@ export function AIAssistant() {
     }
   };
 
-  // Message component with streaming animation
+  // Enhanced Message component with better text wrapping and cursor
   const Message = ({ msg }) => {
     return (
       <div
         className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}
       >
         <div
-          className={`max-w-[75%] p-3 rounded-lg text-sm break-words whitespace-pre-wrap shadow-sm ${
+          className={`max-w-[85%] p-3 rounded-lg text-sm break-words shadow-sm ${
             msg.type === "user"
               ? "bg-green-600 text-white rounded-br-none"
               : "bg-white text-gray-800 border border-green-100 rounded-bl-none"
           }`}
+          style={{
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word'
+          }}
         >
           <div className="flex items-start space-x-2">
             {msg.type === "bot" && (
               <Bot className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
             )}
             {msg.type === "user" && (
-              <User className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <User className="h-4 w-4 mt-0.5 flex-shrink-0 text-white" />
             )}
-            <div className="flex-1">
-              <span className="leading-relaxed">{msg.content}</span>
-              {msg.isStreaming && <span className="inline-block w-1 h-4 bg-gray-400 animate-pulse ml-0.5"></span>}
+            <div className="flex-1 min-w-0">
+              {/* Display image if present */}
+              {msg.image && (
+                <div className="mb-2 relative">
+                  <img 
+                    src={msg.image} 
+                    alt="Uploaded preview" 
+                    className="max-w-full h-auto rounded-md max-h-48 object-cover border border-green-200"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    📎 Image attached
+                  </div>
+                </div>
+              )}
+              <div className="break-words whitespace-pre-wrap overflow-hidden">
+                {msg.content}
+                {msg.isStreaming && (
+                  <span className="inline-block w-2 h-4 bg-green-500 ml-0.5 animate-pulse"></span>
+                )}
+              </div>
             </div>
           </div>
           <p className={`text-xs mt-1 ${msg.type === "user" ? "text-green-100" : "text-gray-500"}`}>
@@ -206,6 +289,7 @@ export function AIAssistant() {
                 className="p-1 rounded-md hover:bg-green-500 transition-colors"
                 title="Clear conversation"
                 aria-label="Clear conversation"
+                disabled={isLoading}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -214,6 +298,7 @@ export function AIAssistant() {
                 className="p-1 rounded-md hover:bg-green-500 transition-colors"
                 title="Close chat"
                 aria-label="Close chat"
+                disabled={isLoading}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -236,41 +321,87 @@ export function AIAssistant() {
                     <div className="flex items-center space-x-2">
                       <Bot className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600 animate-pulse" />
                       <div className="flex space-x-1">
-                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                        <span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                        <span className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                       </div>
+                      <span className="text-sm text-gray-600">Analyzing...</span>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Input */}
+            {/* Input Area */}
             <div className="p-4 border-t border-green-100 bg-white">
+              {/* Image Preview */}
+              {imagePreview && (
+                <div className="mb-3 relative inline-block">
+                  <div className="relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Selected preview" 
+                      className="h-20 w-20 object-cover rounded-md border-2 border-green-300 shadow-sm"
+                    />
+                    <button
+                      onClick={removeImage}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-md"
+                      aria-label="Remove image"
+                      disabled={isLoading}
+                    >
+                      <XCircle className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex space-x-2">
+                {/* Image Upload Button */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                  className="bg-green-100 hover:bg-green-200 disabled:bg-gray-100 transition-colors text-green-700 p-2 rounded-md disabled:cursor-not-allowed border border-green-200 shadow-sm"
+                  aria-label="Upload image"
+                  title="Upload image"
+                >
+                  <Image className="h-4 w-4" />
+                </button>
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageSelect}
+                  accept="image/*"
+                  className="hidden"
+                  aria-label="Select image file"
+                  disabled={isLoading}
+                />
+
+                {/* Text Input */}
                 <input
                   ref={inputRef}
                   type="text"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask me anything about farming..."
-                  className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder={selectedImage ? "Add a question with your image..." : "Ask about farming or upload crop image..."}
+                  className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-50"
                   aria-label="Type your message"
                   disabled={isLoading}
                 />
+
+                {/* Send Button */}
                 <button
                   onClick={handleSendMessage}
-                  disabled={!message.trim() || isLoading}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 transition-colors text-white p-2 rounded-md disabled:cursor-not-allowed"
+                  disabled={(!message.trim() && !selectedImage) || isLoading}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 transition-colors text-white p-2 rounded-md disabled:cursor-not-allowed shadow-sm"
                   aria-label="Send message"
                 >
                   <Send className="h-4 w-4" />
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                Press Enter to send • Available 24/7
+                {selectedImage ? "Image ready for analysis • Press Enter to send" : "Press Enter to send • Available 24/7"}
               </p>
             </div>
           </div>

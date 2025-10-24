@@ -1,3 +1,8 @@
 .env
 *.pyc
 data
+agro_assistant.log
+__pycache__
+Backend-AI\__pycache__
+Backend-AI\routes\__pycache__
+Backend-AI\routes\main_chatbot\__pycache__

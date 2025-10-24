@@ -1,54 +1,235 @@
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain.chains import RetrievalQA
-from langchain_groq import ChatGroq
-from langchain.prompts import PromptTemplate
-from langchain.schema import Document
-from typing import TypedDict, List, Optional
-from dotenv import load_dotenv
-import os
-import errno
-import sys
-import logging
-import requests
-import json
-from datetime import datetime
-import google.generativeai as genai
-import hashlib
-import pickle
-from functools import lru_cache
-from bs4 import BeautifulSoup
-import re
+# ===== IMPORTS =====
+# Core LangChain components for document processing and AI
+from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader  # PDF document loading
+from langchain.text_splitter import RecursiveCharacterTextSplitter  # Text chunking for better processing
+from langchain_google_genai import GoogleGenerativeAIEmbeddings  # Google's embedding model
+from langchain_groq import ChatGroq  # Groq LLM for fast inference
+from langchain.prompts import PromptTemplate  # Template for structured prompts
+from langchain.schema import Document  # Document schema for LangChain
+from typing import TypedDict, List, Optional  # Type hints for better code clarity
 
-import tensorflow as tf
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+# Environment and configuration
+from dotenv import load_dotenv  # Load environment variables from .env file
+
+# Vector database and storage
+from pinecone import Pinecone, ServerlessSpec  # Pinecone vector database
+from langchain_pinecone import PineconeVectorStore  # LangChain integration with Pinecone
+
+# Standard library imports
+import os  # Operating system interface
+import errno  # Error codes
+import sys  # System-specific parameters
+import logging  # Logging functionality
+import requests  # HTTP library for API calls
+import json  # JSON data handling
+from datetime import datetime  # Date and time handling
+import hashlib  # Hash functions for caching
+import pickle  # Object serialization for caching
+from functools import lru_cache  # Least Recently Used cache decorator
+import re  # Regular expressions
+import time  # Time-related functions
+import threading  # Threading support
+import signal  # Signal handling for graceful shutdown
+
+# Third-party libraries
+import google.generativeai as genai  # Google's Generative AI
+from bs4 import BeautifulSoup  # HTML/XML parsing
+import psutil  # System and process utilities
+from prometheus_client import start_http_server, Counter, Histogram, Gauge  # Metrics collection
+
+# ===== PRODUCTION CONFIGURATION =====
+class Config:
+    """
+    Production configuration management class
+    Centralizes all configuration parameters for the agricultural assistant
+    """
+    # API Rate Limits - Controls request frequency to prevent API overuse
+    GROQ_RATE_LIMIT = 100  # Maximum Groq API calls per minute
+    GEMINI_RATE_LIMIT = 60  # Maximum Gemini API calls per minute
+    WEATHER_API_RATE_LIMIT = 60  # Maximum weather API calls per minute
+    
+    # Performance settings - Optimizes system performance and resource usage
+    MAX_CONCURRENT_QUERIES = 10  # Maximum simultaneous queries to prevent overload
+    CACHE_SIZE_MB = 100  # Maximum cache size in megabytes
+    REQUEST_TIMEOUT = 30  # Timeout for external API requests in seconds
+    MAX_DOCUMENT_SIZE_MB = 50  # Maximum size for uploaded documents
+    
+    # Monitoring - Health check and metrics configuration
+    HEALTH_CHECK_INTERVAL = 30  # Health check frequency in seconds
+    METRICS_PORT = 8000  # Port for Prometheus metrics endpoint
+    
+    # Security - File upload and security constraints
+    ALLOWED_FILE_TYPES = ['.pdf']  # Only PDF files are allowed for upload
+    MAX_FILE_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB maximum file size
+
+# ===== PROMETHEUS METRICS =====
+# Metrics for monitoring system performance and health
+QUERY_COUNTER = Counter('agro_assistant_queries_total', 'Total number of queries', ['llm_source', 'status'])  # Tracks query count by LLM and status
+QUERY_DURATION = Histogram('agro_assistant_query_duration_seconds', 'Query processing time')  # Measures query processing time
+ACTIVE_QUERIES = Gauge('agro_assistant_active_queries', 'Number of active queries')  # Current number of active queries
+CACHE_HITS = Counter('agro_assistant_cache_hits_total', 'Cache hit counter')  # Tracks cache hit frequency
+API_ERRORS = Counter('agro_assistant_api_errors_total', 'API error counter', ['api_name'])  # Tracks API errors by service
+
+# ===== RATE LIMITING =====
+class RateLimiter:
+    """Production rate limiting"""
+    def __init__(self, calls_per_minute):
+        self.calls_per_minute = calls_per_minute
+        self.calls = []
+        self.lock = threading.Lock()
+    
+    def acquire(self):
+        with self.lock:
+            now = time.time()
+            self.calls = [call for call in self.calls if now - call < 60]
+            
+            if len(self.calls) >= self.calls_per_minute:
+                sleep_time = 60 - (now - self.calls[0])
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                    self.calls = self.calls[1:]
+            
+            self.calls.append(now)
+
+# Initialize rate limiters
+groq_limiter = RateLimiter(Config.GROQ_RATE_LIMIT)
+gemini_limiter = RateLimiter(Config.GEMINI_RATE_LIMIT)
+weather_limiter = RateLimiter(Config.WEATHER_API_RATE_LIMIT)
+
+# ===== PRODUCTION LOGGING =====
+def setup_production_logging():
+    """Setup structured logging for production"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('agro_assistant.log'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+setup_production_logging()
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 PDF_DIR = os.path.join(BASE_DIR, "data")
-FAISS_DIR = os.path.join(BASE_DIR, "vector_store", "chat_db_faiss")
+PINECONE_INDEX_NAME = "agro-assistant-index"
 CACHE_DIR = os.path.join(BASE_DIR, "cache")
 GROQ_MODEL = "llama-3.1-8b-instant"
 COSINE_THRESHOLD = 0.5
-CACHE_EXPIRY_HOURS = 24  # Cache expiry time in hours
+CACHE_EXPIRY_HOURS = 24
 
+# ===== HEALTH CHECKS =====
+class HealthChecker:
+    """System health monitoring"""
+    def __init__(self):
+        self.healthy = True
+        self.last_check = time.time()
+    
+    def check_health(self):
+        """Comprehensive health check"""
+        try:
+            checks = {
+                'pinecone_connection': self.check_pinecone(),
+                'api_keys': self.check_api_keys(),
+                'disk_space': self.check_disk_space(),
+                'memory_usage': self.check_memory(),
+                'cpu_usage': self.check_cpu()
+            }
+            
+            self.healthy = all(checks.values())
+            self.last_check = time.time()
+            
+            return {
+                'healthy': self.healthy,
+                'status': 'healthy' if self.healthy else 'unhealthy',
+                'timestamp': self.last_check,
+                'checks': checks
+            }
+        except Exception as e:
+            logger.error(f"Health check error: {str(e)}")
+            self.healthy = False
+            return {
+                'healthy': False,
+                'status': 'unhealthy',
+                'timestamp': time.time(),
+                'checks': {},
+                'error': str(e)
+            }
+    
+    def check_pinecone(self):
+        try:
+            pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+            pc.list_indexes()
+            return True
+        except Exception as e:
+            logger.error(f"Pinecone health check failed: {str(e)}")
+            return False
+    
+    def check_api_keys(self):
+        try:
+            required_keys = ['PINECONE_API_KEY', 'GOOGLE_API_KEY', 'GROQ_API_KEY']
+            return all(os.getenv(key) for key in required_keys)
+        except Exception as e:
+            logger.error(f"API keys check failed: {str(e)}")
+            return False
+    
+    def check_disk_space(self):
+        try:
+            usage = psutil.disk_usage('/')
+            return usage.percent < 90
+        except Exception as e:
+            logger.error(f"Disk space check failed: {str(e)}")
+            return False
+    
+    def check_memory(self):
+        try:
+            return psutil.virtual_memory().percent < 85
+        except Exception as e:
+            logger.error(f"Memory check failed: {str(e)}")
+            return False
+    
+    def check_cpu(self):
+        try:
+            return psutil.cpu_percent(interval=1) < 80
+        except Exception as e:
+            logger.error(f"CPU check failed: {str(e)}")
+            return False
+
+# ===== SECURITY =====
+class SecurityManager:
+    """Security and input validation"""
+    @staticmethod
+    def sanitize_input(text):
+        """Sanitize user input to prevent injection attacks"""
+        if not text or not isinstance(text, str):
+            return ""
+        sanitized = re.sub(r'[<>"\']', '', text)
+        return sanitized[:1000]
+    
+    @staticmethod
+    def validate_file_upload(file_path):
+        """Validate uploaded files"""
+        try:
+            if not any(file_path.lower().endswith(ext) for ext in Config.ALLOWED_FILE_TYPES):
+                return False, "Invalid file type"
+            
+            file_size = os.path.getsize(file_path)
+            if file_size > Config.MAX_FILE_UPLOAD_SIZE:
+                return False, "File too large"
+            
+            return True, "Valid"
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
 
 # Define state
 class AgentState(TypedDict):
     query: str
-    documents: Optional[FAISS]
+    documents: Optional[PineconeVectorStore]
     answer: str
     source_documents: List[Document]
     weather_data: dict
@@ -58,6 +239,41 @@ class AgentState(TypedDict):
     needs_location: bool
     agricultural_alerts: List[str]
     crop_suggestions: List[str]
+
+# Initialize Pinecone
+def initialize_pinecone():
+    """Initialize Pinecone client and create index if needed"""
+    try:
+        api_key = os.getenv("PINECONE_API_KEY")
+        if not api_key:
+            raise ValueError("PINECONE_API_KEY not found in environment variables")
+        
+        pc = Pinecone(api_key=api_key)
+        
+        # Check if index exists
+        existing_indexes = pc.list_indexes()
+        index_names = [index.name for index in existing_indexes] if hasattr(existing_indexes, '__iter__') else []
+        
+        if PINECONE_INDEX_NAME not in index_names:
+            print(f"Creating Pinecone index: {PINECONE_INDEX_NAME}")
+            pc.create_index(
+                name=PINECONE_INDEX_NAME,
+                dimension=768,
+                metric="cosine",
+                spec=ServerlessSpec(
+                    cloud="aws",
+                    region="us-east-1"
+                )
+            )
+            print("Waiting for index to be ready...")
+            time.sleep(60)
+        else:
+            print(f"Pinecone index {PINECONE_INDEX_NAME} already exists")
+        
+        return pc
+    except Exception as e:
+        logger.error(f"Error initializing Pinecone: {str(e)}")
+        return None
 
 # Initialize components
 def initialize_components():
@@ -72,9 +288,23 @@ def initialize_components():
         os.makedirs(CACHE_DIR)
         logger.info(f"Created {CACHE_DIR} directory for caching.")
     
-    # Create vector store if it doesn't exist
-    if not os.path.exists(FAISS_DIR):
+    # Initialize Pinecone
+    initialize_pinecone()
+    
+    # Create vector store if documents exist
+    if not pinecone_index_has_documents():
         create_vector_store_from_pdfs()
+
+def pinecone_index_has_documents():
+    """Check if Pinecone index already has documents"""
+    try:
+        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+        index = pc.Index(PINECONE_INDEX_NAME)
+        stats = index.describe_index_stats()
+        return stats.get('total_vector_count', 0) > 0
+    except Exception as e:
+        logger.error(f"Error checking Pinecone index: {str(e)}")
+        return False
 
 def load_pdf_documents():
     """Load PDF documents from directory"""
@@ -118,7 +348,6 @@ def get_embedding_dimensions():
     """Get the dimensions of Google Generative AI embeddings"""
     try:
         embedding_model = get_embedding_model()
-        # Test embedding to get dimensions
         test_text = "This is a test sentence to get embedding dimensions."
         embedding = embedding_model.embed_query(test_text)
         dimensions = len(embedding)
@@ -129,29 +358,27 @@ def get_embedding_dimensions():
         return None
 
 def get_vector_store_stats():
-    """Get statistics about the vector store including total vectors and dimensions"""
+    """Get statistics about the Pinecone vector store"""
     try:
-        vector_store = get_vector_store()
-        if not vector_store:
-            return {"error": "Vector store not available"}
+        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+        index = pc.Index(PINECONE_INDEX_NAME)
+        stats = index.describe_index_stats()
         
-        # Get total number of vectors
-        total_vectors = vector_store.index.ntotal
-        
-        # Get embedding dimensions
         embedding_dimensions = get_embedding_dimensions()
+        total_vectors = stats.get('total_vector_count', 0)
         
-        stats = {
+        stats_data = {
             "total_vectors": total_vectors,
             "embedding_dimensions": embedding_dimensions,
-            "vector_store_size": f"{total_vectors} vectors × {embedding_dimensions} dimensions"
+            "vector_store_size": f"{total_vectors} vectors × {embedding_dimensions} dimensions",
+            "index_fullness": stats.get('index_fullness', 'N/A'),
+            "namespaces": list(stats.get('namespaces', {}).keys())
         }
         
-        logger.info(f"Vector store stats: {stats}")
-        return stats
-        
+        logger.info(f"Pinecone vector store stats: {stats_data}")
+        return stats_data
     except Exception as e:
-        logger.error(f"Error getting vector store stats: {str(e)}")
+        logger.error(f"Error getting Pinecone vector store stats: {str(e)}")
         return {"error": str(e)}
 
 def display_vector_store_info():
@@ -181,7 +408,7 @@ def get_pinecone_config():
     
     pinecone_config = {
         "dimension": stats["embedding_dimensions"],
-        "metric": "cosine",  # Default metric for similarity search
+        "metric": "cosine",
         "total_vectors": stats["total_vectors"],
         "embedding_model": "Google Generative AI text-embedding-004"
     }
@@ -212,7 +439,7 @@ def show_pinecone_setup_guide():
     print("="*60)
 
 def create_vector_store_from_pdfs():
-    """Create and persist FAISS vector store from PDFs"""
+    """Create and persist Pinecone vector store from PDFs"""
     try:
         documents = load_pdf_documents()
         if not documents:
@@ -222,38 +449,39 @@ def create_vector_store_from_pdfs():
         chunks = create_chunks(documents)
         embedding_model = get_embedding_model()
         
-        vector_store = FAISS.from_documents(
-            documents=chunks, 
-            embedding=embedding_model
+        initialize_pinecone()
+        
+        vector_store = PineconeVectorStore.from_documents(
+            documents=chunks,
+            embedding=embedding_model,
+            index_name=PINECONE_INDEX_NAME
         )
-        vector_store.save_local(FAISS_DIR)
-        logger.info(f"Created FAISS vector store with {len(chunks)} chunks using Google Generative AI embeddings")
+        
+        logger.info(f"Created Pinecone vector store with {len(chunks)} chunks using Google Generative AI embeddings")
         return vector_store
     except Exception as e:
-        logger.error(f"Error creating vector store: {str(e)}")
+        logger.error(f"Error creating Pinecone vector store: {str(e)}")
         return None
 
-def load_vector_store():
-    """Load existing FAISS vector store"""
+def get_pinecone_vector_store():
+    """Get existing Pinecone vector store for querying"""
     try:
         embedding_model = get_embedding_model()
-        vector_store = FAISS.load_local(
-            FAISS_DIR,
-            embeddings=embedding_model,
-            allow_dangerous_deserialization=True
+        
+        vector_store = PineconeVectorStore.from_existing_index(
+            index_name=PINECONE_INDEX_NAME,
+            embedding=embedding_model
         )
-        logger.info("Loaded existing FAISS vector store with Google Generative AI embeddings")
+        
+        logger.info("Successfully loaded Pinecone vector store")
         return vector_store
     except Exception as e:
-        logger.error(f"Error loading vector store: {str(e)}")
+        logger.error(f"Error getting Pinecone vector store: {str(e)}")
         return None
 
 def get_vector_store():
-    """Get or create vector store"""
-    if os.path.exists(FAISS_DIR):
-        return load_vector_store()
-    else:
-        return create_vector_store_from_pdfs()
+    """Get or create vector store - NOW USING PINECONE"""
+    return get_pinecone_vector_store() or create_vector_store_from_pdfs()
 
 def get_groq_llm():
     """Initialize Groq LLM"""
@@ -265,7 +493,7 @@ def get_groq_llm():
         temperature=0.3,
         groq_api_key=api_key,
         model_name=GROQ_MODEL,
-        max_tokens=200  # Reduced to ensure concise answers
+        max_tokens=200
     )
 
 def get_gemini_model():
@@ -283,11 +511,11 @@ def get_gemini_model():
 def detect_user_location():
     """Detect user's location using Geoapify API"""
     try:
+        weather_limiter.acquire()
         api_key = os.getenv("GEOAPIFY_API_KEY")
         if not api_key:
             return {"error": "GEOAPIFY_API_KEY not found in environment variables"}
         
-        # Get IP-based location
         url = f"https://api.geoapify.com/v1/ipinfo?apiKey={api_key}"
         response = requests.get(url, timeout=10)
         
@@ -315,11 +543,11 @@ def detect_user_location():
 def get_weather_data(latitude, longitude, location_name):
     """Get current weather data for a location"""
     try:
+        weather_limiter.acquire()
         api_key = os.getenv("OPENWEATHER_API_KEY")
         if not api_key:
             return {"error": "OPENWEATHER_API_KEY not found in environment variables"}
         
-        # Use coordinates if available, otherwise fall back to location name
         if latitude and longitude:
             url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={api_key}&units=metric"
         else:
@@ -346,7 +574,7 @@ def get_weather_data(latitude, longitude, location_name):
             logger.error(error_msg)
             return {"error": error_msg}
     except Exception as e:
-        error_msg = f"Weater API error: {str(e)}"
+        error_msg = f"Weather API error: {str(e)}"
         logger.error(error_msg)
         return {"error": error_msg}
 
@@ -355,10 +583,8 @@ def get_seasonal_info(query=""):
     current_month = datetime.now().month
     query_lower = query.lower() if query else ""
     
-    # Check if user is specifically asking about summer
     is_summer_query = any(word in query_lower for word in ['summer', 'summers'])
     
-    # Define seasons for agricultural context
     if current_month in [12, 1, 2]:
         current_season = "Winter (Rabi Season)"
         description = "Cold and dry season, suitable for wheat, barley, peas, and mustard"
@@ -374,13 +600,12 @@ def get_seasonal_info(query=""):
         description = "Rainy season, suitable for rice, sugarcane, cotton, and jowar"
         summer_season = "Summer (Pre-Monsoon) - March to May"
         summer_description = "Hot and dry season, suitable for summer crops like fodder crops and vegetables"
-    else:  # [10, 11]
+    else:
         current_season = "Post-Monsoon (Harvest/Transition)"
         description = "Harvest season transitioning to winter crops"
         summer_season = "Summer (Pre-Monsoon) - March to May"
         summer_description = "Hot and dry season, suitable for summer crops like fodder crops and vegetables"
     
-    # If user specifically asked about summer, prioritize summer information
     if is_summer_query:
         return {
             "current_season": summer_season,
@@ -412,11 +637,9 @@ def needs_location_detection(query):
     
     query_lower = query.lower()
     
-    # Always detect location for weather/temperature queries
     if any(keyword in query_lower for keyword in location_keywords):
         return True
     
-    # Detect location for crop-related queries that mention location
     if any(keyword in query_lower for keyword in crop_keywords):
         if "my" in query_lower or "here" in query_lower or "this" in query_lower:
             return True
@@ -427,19 +650,16 @@ def extract_location_from_query(query):
     """Extract location from query if explicitly mentioned"""
     query_lower = query.lower().strip()
     
-    # First, check for special phrases that should NOT be treated as locations
     special_phrases = ["current location", "my location", "here", "this area", "my area", "is weather"]
     if any(phrase in query_lower for phrase in special_phrases):
         return None
     
     logger.info(f"DEBUG: Processing query: '{query_lower}'")
     
-    # Handle the specific case of "weather of [location]"
     if "weather of " in query_lower:
         parts = query_lower.split("weather of ")
         if len(parts) > 1:
             location_part = parts[1].strip()
-            # Take the first word as location (for "agra")
             potential_location = location_part.split()[0] if location_part.split() else ""
             potential_location = potential_location.rstrip('.,!?;')
             
@@ -449,7 +669,6 @@ def extract_location_from_query(query):
                 logger.info(f"DEBUG: Returning location from 'weather of' pattern: '{potential_location.title()}'")
                 return potential_location.title()
     
-    # Pattern 1: Direct weather/temperature queries about a place
     weather_patterns = [
         "temperature of ",
         "weather in ",
@@ -461,17 +680,14 @@ def extract_location_from_query(query):
     
     for pattern in weather_patterns:
         if pattern in query_lower:
-            # Extract text after the pattern
             start_index = query_lower.find(pattern) + len(pattern)
             remaining_text = query_lower[start_index:].strip()
             
             if remaining_text:
-                # Take the first 1-2 words as potential location
                 potential_words = remaining_text.split()[:2]
                 potential_location = " ".join(potential_words).strip()
                 potential_location = potential_location.rstrip('.,!?;')
                 
-                # Remove question words
                 question_words = ["what", "is", "the", "a", "an", "for", "today", "now"]
                 location_words = [word for word in potential_location.split() if word not in question_words]
                 potential_location = " ".join(location_words).strip()
@@ -482,7 +698,6 @@ def extract_location_from_query(query):
                     logger.info(f"DEBUG: Returning location: '{potential_location.title()}'")
                     return potential_location.title()
     
-    # Pattern 2: Common location indicators followed by location
     location_indicators = ["in ", "at ", "near ", "around ", "for ", "of "]
     
     for indicator in location_indicators:
@@ -505,7 +720,6 @@ def extract_location_from_query(query):
                     logger.info(f"DEBUG: Returning location: '{potential_location.title()}'")
                     return potential_location.title()
     
-    # Pattern 3: Check for common Indian city names anywhere in query
     cities = ["delhi", "mumbai", "chennai", "kolkata", "bangalore", "hyderabad", 
               "pune", "jaipur", "ahmedabad", "lucknow", "kanpur", "nagpur", 
               "indore", "thane", "bhopal", "visakhapatnam", "patna", "ludhiana",
@@ -521,7 +735,6 @@ def extract_location_from_query(query):
     
     for city in cities:
         if city in query_lower:
-            # Make sure it's not part of another word
             words = query_lower.split()
             for word in words:
                 if city == word:
@@ -553,11 +766,9 @@ def is_poor_answer(answer):
     
     answer_lower = answer.lower()
     
-    # Check for short or vague answers
     if len(answer.split()) < 5:
         return True
     
-    # Check for poor indicators
     return any(indicator in answer_lower for indicator in poor_indicators)
 
 def truncate_answer(answer, max_words=150):
@@ -566,22 +777,17 @@ def truncate_answer(answer, max_words=150):
     if len(words) <= max_words:
         return answer
     
-    # Truncate to max_words
     truncated = " ".join(words[:max_words])
     
-    # Find the last complete sentence
     last_period = truncated.rfind('.')
     last_question = truncated.rfind('?')
     last_exclamation = truncated.rfind('!')
     
-    # Find the last sentence ending
     last_end = max(last_period, last_question, last_exclamation)
     
     if last_end > 0:
-        # Return up to the last complete sentence
         return truncated[:last_end + 1]
     else:
-        # If no sentence ending found, just return the truncated text
         return truncated
 
 def remove_redundancies(answer):
@@ -601,21 +807,18 @@ def remove_redundancies(answer):
     for phrase in redundancies:
         answer = answer.replace(phrase, "")
     
-    # Clean up extra spaces
     return " ".join(answer.split())
-
 
 def generate_groq_answer(query, context_docs, location_data, weather_data, season_info, agricultural_alerts, crop_suggestions):
     """Generate answer using Groq LLM with context and location/weather data"""
     try:
+        groq_limiter.acquire()
         llm = get_groq_llm()
         
-        # Prepare context from documents
         context_text = ""
         if context_docs:
-            context_text = "\n\n".join([doc.page_content[:500] for doc in context_docs[:2]])  # Limit context length
+            context_text = "\n\n".join([doc.page_content[:500] for doc in context_docs[:2]])
         
-        # Prepare location and weather context
         location_context = ""
         if location_data and "error" not in location_data:
             location_context = f"User's Location: {location_data.get('city', 'Unknown')}, {location_data.get('state', 'Unknown')}, {location_data.get('country', 'Unknown')}"
@@ -626,13 +829,11 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
         
         season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
         
-        # Prepare season context based on whether it's a summer-focused query
         if season_info.get('is_summer_focus'):
             season_context = f"USER IS SPECIFICALLY ASKING ABOUT SUMMER SEASON: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
         else:
             season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
 
-        # Prepare agricultural context
         agricultural_context = ""
         if agricultural_alerts:
             agricultural_context = f"Agricultural Alerts: {', '.join(agricultural_alerts)}"
@@ -641,7 +842,6 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
         if crop_suggestions:
             crop_context = f"Crop Suggestions: {', '.join(crop_suggestions)}"
         
-        # Create enhanced prompt with emphasis on conciseness and references
         prompt_template = PromptTemplate(
             input_variables=["query", "context", "location", "weather", "season", "alerts", "crops"],
             template="""
@@ -686,11 +886,9 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
             crops=crop_context
         )
         
-        # Generate response
         response = llm.invoke(prompt)
         answer = response.content.strip()
         
-        # Apply conciseness filters
         answer = remove_redundancies(answer)
         answer = truncate_answer(answer, 150)
         
@@ -698,19 +896,19 @@ def generate_groq_answer(query, context_docs, location_data, weather_data, seaso
         
     except Exception as e:
         logger.error(f"Groq API error: {str(e)}")
+        API_ERRORS.labels(api_name='groq').inc()
         raise Exception(f"Failed to generate answer with Groq: {str(e)}")
 
 def generate_gemini_answer(query, context_docs, location_data, weather_data, season_info, agricultural_alerts, crop_suggestions):
     """Generate fallback answer using Gemini"""
     try:
+        gemini_limiter.acquire()
         model = get_gemini_model()
         
-        # Prepare context from documents
         context_text = ""
         if context_docs:
-            context_text = "\n\n".join([doc.page_content[:500] for doc in context_docs[:2]])  # Limit context length
+            context_text = "\n\n".join([doc.page_content[:500] for doc in context_docs[:2]])
         
-        # Prepare location and weather context
         location_context = ""
         if location_data and "error" not in location_data:
             location_context = f"User's Location: {location_data.get('city', 'Unknown')}, {location_data.get('state', 'Unknown')}, {location_data.get('country', 'Unknown')}"
@@ -726,7 +924,6 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
         else:
             season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
         
-        # Prepare agricultural context
         agricultural_context = ""
         if agricultural_alerts:
             agricultural_context = f"Agricultural Alerts: {', '.join(agricultural_alerts)}"
@@ -735,7 +932,6 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
         if crop_suggestions:
             crop_context = f"Crop Suggestions: {', '.join(crop_suggestions)}"
         
-        # Create prompt with emphasis on conciseness and references
         prompt = f"""
         You are an expert agricultural assistant. Provide concise, practical answers (max 150 words).
 
@@ -767,11 +963,9 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
         ANSWER:
         """
         
-        # Generate response
         response = model.generate_content(prompt)
         answer = response.text.strip()
         
-        # Apply conciseness filters
         answer = remove_redundancies(answer)
         answer = truncate_answer(answer, 150)
         
@@ -779,51 +973,45 @@ def generate_gemini_answer(query, context_docs, location_data, weather_data, sea
         
     except Exception as e:
         logger.error(f"Gemini API error: {str(e)}")
+        API_ERRORS.labels(api_name='gemini').inc()
         raise Exception(f"Failed to generate answer with Gemini: {str(e)}")
 
-def retrieve_relevant_documents(vector_store, query, threshold=0.5):
-    """Retrieve relevant documents using similarity search with threshold"""
+def retrieve_relevant_documents(query, threshold=0.5):
+    """Retrieve relevant documents using Pinecone similarity search"""
     try:
-        # Get embedding model
-        embedding_model = get_embedding_model()
+        vector_store = get_vector_store()
+        if not vector_store:
+            return []
         
-        # Embed the query
-        embedded_query = embedding_model.embed_query(query)
-        
-        # Perform similarity search
-        docs_and_scores = vector_store.similarity_search_with_score_by_vector(
-            embedded_query, k=5
+        docs_and_scores = vector_store.similarity_search_with_score(
+            query, 
+            k=5
         )
         
-        # Filter by threshold
         filtered_docs = [doc for doc, score in docs_and_scores if score >= threshold]
-        logger.info(f"Retrieved {len(filtered_docs)} relevant documents")
+        logger.info(f"Retrieved {len(filtered_docs)} relevant documents from Pinecone")
         return filtered_docs
         
     except Exception as e:
-        logger.error(f"Error retrieving documents: {str(e)}")
+        logger.error(f"Error retrieving documents from Pinecone: {str(e)}")
         return []
 
 def handle_special_queries(query, location_data, weather_data):
     """Handle special queries like location and weather directly"""
     query_lower = query.lower()
     
-    # Extract location from query first
     extracted_location = extract_location_from_query(query)
     
-    # Handle pure weather queries (without crop/agriculture context)
     weather_terms = ["weather", "temperature", "forecast", "rain", "sunny", "humidity"]
     is_weather_query = any(term in query_lower for term in weather_terms)
     is_agricultural_query = any(term in query_lower for term in ["crop", "plant", "grow", "agriculture", "farming"])
     
-    # Special handling for "current location", "my location", etc.
+    
     special_location_phrases = ["current location", "my location", "here", "this area", "my area"]
     is_special_location_query = any(phrase in query_lower for phrase in special_location_phrases)
     
-    # If it's a special location query (like "current location")
     if is_special_location_query and is_weather_query and not is_agricultural_query:
         if weather_data and "error" not in weather_data:
-            # Use detected location weather
             location = weather_data.get('location', 'your area')
             temp = weather_data.get('temperature', 'N/A')
             conditions = weather_data.get('conditions', 'N/A')
@@ -832,9 +1020,7 @@ def handle_special_queries(query, location_data, weather_data):
         else:
             return "I couldn't retrieve weather data for your location. Please ensure your OPENWEATHER_API_KEY is set correctly."
     
-    # If it's a weather query for a specific extracted location
     elif extracted_location and is_weather_query and not is_agricultural_query:
-        # Get weather for the extracted location
         weather_data_for_location = get_weather_data(None, None, extracted_location)
         if weather_data_for_location and "error" not in weather_data_for_location:
             location = weather_data_for_location.get('location', extracted_location)
@@ -845,10 +1031,8 @@ def handle_special_queries(query, location_data, weather_data):
         else:
             return f"Could not retrieve weather data for {extracted_location}. Please check if the city name is correct and your OPENWEATHER_API_KEY is valid."
     
-    # If it's a weather query without agricultural context but no specific location
     elif is_weather_query and not is_agricultural_query and not extracted_location:
         if weather_data and "error" not in weather_data:
-            # Use detected location weather
             location = weather_data.get('location', 'your area')
             temp = weather_data.get('temperature', 'N/A')
             conditions = weather_data.get('conditions', 'N/A')
@@ -857,7 +1041,6 @@ def handle_special_queries(query, location_data, weather_data):
         else:
             return "I couldn't retrieve weather data. Please ensure your OPENWEATHER_API_KEY is set correctly."
     
-    # Handle pure location queries (without crop context)
     location_only_terms = ["location", "where am i", "my location", "this area"]
     if any(term in query_lower for term in location_only_terms) and not is_agricultural_query:
         if location_data and "error" not in location_data:
@@ -870,10 +1053,7 @@ def handle_special_queries(query, location_data, weather_data):
 # ===== RESPONSE CACHING IMPLEMENTATION =====
 def get_query_hash(query, location_data, weather_data):
     """Generate a unique hash for the query and context"""
-    # Create a string representation of the query and context
     context_str = f"{query}_{location_data.get('city', '')}_{weather_data.get('temperature', '')}"
-    
-    # Generate MD5 hash
     return hashlib.md5(context_str.encode()).hexdigest()
 
 def check_cache(query_hash):
@@ -883,20 +1063,19 @@ def check_cache(query_hash):
     if not os.path.exists(cache_file):
         return None
     
-    # Check if cache is expired
     cache_time = os.path.getmtime(cache_file)
     current_time = datetime.now().timestamp()
     cache_age_hours = (current_time - cache_time) / 3600
     
     if cache_age_hours > CACHE_EXPIRY_HOURS:
-        os.remove(cache_file)  # Remove expired cache
+        os.remove(cache_file)
         return None
     
-    # Load cached response
     try:
         with open(cache_file, 'rb') as f:
             cached_data = pickle.load(f)
         logger.info("Response retrieved from cache")
+        CACHE_HITS.inc()
         return cached_data
     except Exception as e:
         logger.error(f"Error reading cache: {str(e)}")
@@ -915,7 +1094,6 @@ def save_to_cache(query_hash, response_data):
         
         cache_file = os.path.join(CACHE_DIR, f"{query_hash}.pkl")
         
-        # Create the cache file with proper permissions
         with open(cache_file, 'wb') as f:
             pickle.dump(response_data, f)
         logger.info("Response saved to cache")
@@ -930,7 +1108,6 @@ def get_agricultural_alerts(weather_data, season_info):
     if "error" in weather_data:
         return alerts
     
-    # Temperature-based alerts
     temp = weather_data.get('temperature', 0)
     if isinstance(temp, (int, float)):
         if temp > 35:
@@ -938,7 +1115,6 @@ def get_agricultural_alerts(weather_data, season_info):
         elif temp < 10:
             alerts.append("Low temperature alert: Protect sensitive crops from cold stress")
     
-    # Humidity-based alerts
     humidity = weather_data.get('humidity', 0)
     if isinstance(humidity, (int, float)):
         if humidity > 80:
@@ -946,7 +1122,6 @@ def get_agricultural_alerts(weather_data, season_info):
         elif humidity < 30:
             alerts.append("Low humidity alert: Increased irrigation may be needed")
     
-    # Weather condition alerts
     conditions = weather_data.get('conditions', '').lower()
     if 'rain' in conditions or 'shower' in conditions:
         alerts.append("Rain alert: Good for irrigation but watch for waterlogging")
@@ -955,7 +1130,6 @@ def get_agricultural_alerts(weather_data, season_info):
     if 'drought' in conditions or 'dry' in conditions:
         alerts.append("Drought alert: Implement water conservation measures")
     
-    # Seasonal alerts
     season = season_info.get('current_season', '')
     if 'Winter' in season:
         alerts.append("Winter season: Protect crops from frost and cold waves")
@@ -973,15 +1147,12 @@ def get_crop_suggestions(location_data, weather_data, season_info):
     if "error" in weather_data or "error" in location_data:
         return suggestions
     
-    # Get location details
     state = location_data.get('state', '').lower()
     season = season_info.get('current_season', '')
     temp = weather_data.get('temperature', 0)
     
-    # Check if this is a summer-focused query
     is_summer_focus = season_info.get('is_summer_focus', False)
     
-    # If user specifically asked about summer, prioritize summer crops
     if is_summer_focus or 'Summer' in season:
         suggestions.extend(["Millets (Pearl millet, Finger millet)", "Vegetables (Cucumber, Bottle Gourd, Bitter Gourd)", "Pulses (Green gram, Black gram)", "Oilseeds (Sesame, Groundnut)", "Fodder crops (Sorghum, Maize)"])
         if state in ['punjab', 'haryana', 'uttar pradesh']:
@@ -989,25 +1160,21 @@ def get_crop_suggestions(location_data, weather_data, season_info):
         elif state in ['maharashtra', 'karnataka', 'andhra pradesh']:
             suggestions.extend(["Sunflower", "Green gram", "Cluster beans"])
     
-    # Winter crops (Rabi season) - only if not summer-focused
     elif 'Winter' in season and not is_summer_focus:
         suggestions.extend(["Wheat", "Barley", "Mustard", "Peas", "Chickpeas"])
         if state in ['punjab', 'haryana', 'uttar pradesh']:
             suggestions.extend(["Potato", "Onion", "Garlic"])
     
-    # Monsoon crops (Kharif season) - only if not summer-focused
     elif 'Monsoon' in season and not is_summer_focus:
         suggestions.extend(["Rice", "Maize", "Cotton", "Soybean", "Groundnut"])
         if state in ['maharashtra', 'karnataka', 'andhra pradesh']:
             suggestions.extend(["Sugarcane", "Turmeric", "Pulses"])
     
-    # Post-monsoon transition crops - only if not summer-focused
     elif not is_summer_focus:
         suggestions.extend(["Vegetables", "Pulses", "Oilseeds"])
         if state in ['tamil nadu', 'kerala']:
             suggestions.extend(["Banana", "Coconut", "Spices"])
     
-    # Limit to top 5 suggestions
     return suggestions[:5]
 
 def is_agricultural_query(query):
@@ -1038,11 +1205,9 @@ def is_agricultural_query(query):
     
     query_lower = query.lower()
     
-    # Check for agricultural keywords
     if any(keyword in query_lower for keyword in agricultural_keywords):
         return True
     
-    # Check if it's a location/weather query (which we handle in our system)
     location_weather_keywords = [
         "weather", "temperature", "forecast", "rain", "humidity", "climate",
         "location", "where am i", "my location", "this area"
@@ -1065,16 +1230,13 @@ def is_agricultural_query(query):
 
 def normalize_repeated_characters(text):
     """Normalize repeated characters in text (e.g., 'heelllllo' -> 'hello')"""
-    # This regex pattern finds characters repeated 2 or more times and reduces them to single occurrence
     normalized_text = re.sub(r'(.)\1+', r'\1', text)
     return normalized_text
 
 def is_greeting_query(query):
     """Determine if the query is purely a greeting without agricultural content"""
-    # Normalize the query
     normalized_query = query.lower().strip()
     
-    # Common greeting patterns (exact matches or starts with)
     exact_greetings = [
         "hello", "hi", "hey", "greetings", "good morning", "good afternoon", 
         "good evening", "howdy", "what's up", "sup", "yo", "hola", "namaste",
@@ -1082,20 +1244,15 @@ def is_greeting_query(query):
         "ram ram", "pranam", "good day", "goodnight", "good night"
     ]
     
-    # Check for exact matches
     if normalized_query in exact_greetings:
         return True
     
-    # Check if query starts with greeting words
     for greeting in exact_greetings:
         if normalized_query.startswith(greeting + " ") or normalized_query == greeting:
-            # Check if there's meaningful content after the greeting
             remaining_text = normalized_query[len(greeting):].strip()
-            # If only punctuation or very short text remains, it's a pure greeting
             if len(remaining_text) <= 2 or not any(c.isalpha() for c in remaining_text):
                 return True
     
-    # Additional pattern matching for common greeting variations
     greeting_patterns = [
         r'^hi+$', r'^hello+$', r'^hey+$', r'^he+l+o+$', r'^h+i+$', r'^h+e+y+$',
         r'^hi+\s*$', r'^hello+\s*$', r'^hey+\s*$'
@@ -1109,14 +1266,11 @@ def is_greeting_query(query):
 
 def has_agricultural_content_after_greeting(query):
     """Check if there's agricultural content after the greeting"""
-    # Normalize the query first
     normalized_query = query.lower().strip()
     
-    # If it's already classified as a pure greeting (no meaningful content), return False
     if is_greeting_query(query):
         return False
     
-    # Patterns to remove (greeting patterns)
     patterns_to_remove = [
         r'^hi+\s+', r'^hello+\s+', r'^hey+\s+', r'^greetings\s+',
         r'^good morning\s+', r'^good afternoon\s+', r'^good evening\s+',
@@ -1126,28 +1280,22 @@ def has_agricultural_content_after_greeting(query):
         r'^ram ram\s+', r'^pranam\s+'
     ]
     
-    # Remove greeting patterns
     agricultural_part = normalized_query
     for pattern in patterns_to_remove:
         agricultural_part = re.sub(pattern, '', agricultural_part).strip()
     
-    # If the agricultural part is the same as original (no greeting removed) 
-    # and it's agricultural, return True
     if agricultural_part == normalized_query:
         return is_agricultural_query(agricultural_part)
     
-    # If there's NO meaningful content left after removing greetings
     if len(agricultural_part) <= 2 or not any(c.isalpha() for c in agricultural_part):
         return False
     
-    # Check if the remaining content is agricultural
     return is_agricultural_query(agricultural_part)
 
 def extract_agricultural_content(query):
     """Extract the agricultural part from a mixed query"""
     query_lower = query.lower()
     
-    # Common greeting patterns to remove
     patterns_to_remove = [
         r'^hi+\s+', r'^hello+\s+', r'^hey+\s+', r'^greetings\s+',
         r'^good morning\s+', r'^good afternoon\s+', r'^good evening\s+',
@@ -1157,21 +1305,16 @@ def extract_agricultural_content(query):
         r'^ram ram\s+', r'^pranam\s+'
     ]
     
-    # Remove greeting patterns
     agricultural_part = query_lower
     for pattern in patterns_to_remove:
         agricultural_part = re.sub(pattern, '', agricultural_part).strip()
     
-    # Clean up common follow-up words
     follow_up_words = ['there', 'sir', 'madam', 'friend', 'dear']
     words = agricultural_part.split()
     if words and words[0] in follow_up_words:
         agricultural_part = ' '.join(words[1:]).strip()
     
-    # If we removed everything or the query doesn't start with a greeting,
-    # return the original query but cleaned
     if not agricultural_part or agricultural_part == query_lower:
-        # Clean the original query by removing excessive characters
         agricultural_part = normalize_repeated_characters(query.strip())
     
     return agricultural_part.capitalize() if agricultural_part else query
@@ -1193,7 +1336,6 @@ def get_friendly_greeting():
 
 def handle_greeting_query(query):
     """Handle pure greeting queries with a friendly response"""
-    # Normalize the query to handle repeated characters
     normalized_query = normalize_repeated_characters(query.lower().strip())
     
     greetings = [
@@ -1206,7 +1348,6 @@ def handle_greeting_query(query):
         "Hey there! 🌽 Ready to talk farming? How can I assist you today?"
     ]
     
-    # Choose a random greeting
     import random
     response = random.choice(greetings)
     
@@ -1235,22 +1376,18 @@ def add_references_to_answer(answer, source_documents):
     if not source_documents:
         return answer
     
-    # Get unique source files from top 2 documents
     unique_sources = []
     seen_files = set()
     
-    for doc in source_documents[:2]:  # Only top 2 documents
+    for doc in source_documents[:2]:
         source_file = doc.metadata.get('source', '')
         if source_file and source_file not in seen_files:
-            # Extract just the filename without path
             filename = os.path.basename(source_file)
             unique_sources.append(filename)
             seen_files.add(source_file)
     
-    # Add reference information if we have sources
     if unique_sources:
         ref_text = "Reference: " + ", ".join(unique_sources)
-        # Ensure the answer ends with a proper sentence before adding reference
         if answer and not answer.endswith(('.', '!', '?')):
             answer += '.'
         answer += f" {ref_text}"
@@ -1262,14 +1399,11 @@ def ensure_complete_sentences(text):
     if not text:
         return text
     
-    # Remove trailing whitespace
     text = text.strip()
     
-    # If the text already ends with proper punctuation, return as is
     if text.endswith(('.', '!', '?')):
         return text
     
-    # Find the last sentence ending
     last_period = text.rfind('.')
     last_question = text.rfind('?')
     last_exclamation = text.rfind('!')
@@ -1277,15 +1411,12 @@ def ensure_complete_sentences(text):
     last_end = max(last_period, last_question, last_exclamation)
     
     if last_end > 0:
-        # Return up to the last complete sentence
         return text[:last_end + 1]
     else:
-        # If no sentence ending found, add a period
         return text + '.'
 
 def process_regular_agricultural_query(query):
-    """Process regular agricultural queries (the existing logic)"""
-    # Initialize state
+    """Process regular agricultural queries using Pinecone"""
     state = AgentState(
         query=query,
         documents=None,
@@ -1301,17 +1432,14 @@ def process_regular_agricultural_query(query):
     )
     
     try:
-        # Step 1: Get vector store
         vector_store = get_vector_store()
         if not vector_store:
             return {"error": "Failed to initialize document database"}
         
         state["documents"] = vector_store
         
-        # Step 2: Check if location detection is needed
         state["needs_location"] = needs_location_detection(query)
         
-        # Step 3: Extract location from query FIRST (before any detection)
         extracted_location = extract_location_from_query(query)
         query_lower = query.lower()
         is_weather_query = any(term in query_lower for term in ["weather", "temperature", "forecast", "rain", "humidity"])
@@ -1320,26 +1448,21 @@ def process_regular_agricultural_query(query):
         logger.info(f"DEBUG: Extracted location: '{extracted_location}'")
         logger.info(f"DEBUG: Is weather query: {is_weather_query}")
         
-        # Step 4: Handle location detection and weather data
         if state["needs_location"]:
-            # SPECIAL FIX: If we extracted a location from query, use it immediately
             if extracted_location and is_weather_query:
                 logger.info(f"Using extracted location for weather query: {extracted_location}")
                 state["user_location"] = {
                     "city": extracted_location,
                     "detected_via": "query extraction"
                 }
-                # Get weather for the extracted location
                 weather_data = get_weather_data(None, None, extracted_location)
                 state["weather_data"] = weather_data
             
-            # Special handling for "current location", "my location", etc.
             elif any(phrase in query_lower for phrase in ["current location", "my location", "here", "this area", "my area"]):
                 logger.info("Special location query detected. Detecting user location...")
                 location_data = detect_user_location()
                 state["user_location"] = location_data
                 
-                # Get weather data for the user's detected location
                 if "error" not in location_data:
                     logger.info("Fetching weather data for user location...")
                     weather_data = get_weather_data(
@@ -1349,24 +1472,20 @@ def process_regular_agricultural_query(query):
                     )
                     state["weather_data"] = weather_data
             
-            # For other location-based queries with extracted location
             elif extracted_location:
                 logger.info(f"Using location extracted from query: {extracted_location}")
                 state["user_location"] = {
                     "city": extracted_location,
                     "detected_via": "query extraction"
                 }
-                # Get weather for the extracted location
                 weather_data = get_weather_data(None, None, extracted_location)
                 state["weather_data"] = weather_data
             
-            # Default: detect user location via IP
             else:
                 logger.info("No location found in query. Detecting user location...")
                 location_data = detect_user_location()
                 state["user_location"] = location_data
                 
-                # Get weather data for the user's detected location
                 if "error" not in location_data:
                     logger.info("Fetching weather data for user location...")
                     weather_data = get_weather_data(
@@ -1376,8 +1495,6 @@ def process_regular_agricultural_query(query):
                     )
                     state["weather_data"] = weather_data
         
-        # Step 5: Check for special queries (only pure location/weather queries)
-        # Use the already determined location and weather data
         special_answer = handle_special_queries(query, state["user_location"], state["weather_data"])
         if special_answer:
             return {
@@ -1392,25 +1509,20 @@ def process_regular_agricultural_query(query):
                 "crop_suggestions": []
             }
         
-        # Step 6: Check cache before processing
         query_hash = get_query_hash(query, state["user_location"], state["weather_data"])
         cached_response = check_cache(query_hash)
         if cached_response:
             return cached_response
         
-        # Step 7: Retrieve relevant documents
-        logger.info("Retrieving relevant documents...")
-        relevant_docs = retrieve_relevant_documents(vector_store, query, COSINE_THRESHOLD)
+        logger.info("Retrieving relevant documents from Pinecone...")
+        relevant_docs = retrieve_relevant_documents(query, COSINE_THRESHOLD)
         state["source_documents"] = relevant_docs
         
-        # Step 8: Get seasonal information
         season_info = get_seasonal_info(query)
         
-        # Step 9: Generate agricultural insights
         state["agricultural_alerts"] = get_agricultural_alerts(state["weather_data"], season_info)
         state["crop_suggestions"] = get_crop_suggestions(state["user_location"], state["weather_data"], season_info)
         
-        # Step 10: Generate answer with Groq (primary)
         logger.info("Generating answer with Groq...")
         try:
             answer = generate_groq_answer(
@@ -1424,7 +1536,6 @@ def process_regular_agricultural_query(query):
             )
             state["llm_source"] = "Groq (Llama 3.1)"
             
-            # Check if answer is poor and fallback to Gemini if needed
             if is_poor_answer(answer):
                 logger.info("Groq answer unsatisfactory, falling back to Gemini...")
                 answer = generate_gemini_answer(
@@ -1451,12 +1562,10 @@ def process_regular_agricultural_query(query):
             )
             state["llm_source"] = "Gemini (Fallback)"
         
-        # Step 11: Add references and ensure complete sentences
         answer = add_references_to_answer(answer, state["source_documents"])
         answer = ensure_complete_sentences(answer)
         state["answer"] = answer
         
-        # Step 12: Format response and save to cache
         response = format_response(state, season_info)
         save_to_cache(query_hash, response)
         
@@ -1469,13 +1578,10 @@ def process_regular_agricultural_query(query):
 
 def process_agricultural_query_with_greeting(query):
     """Process queries that start with greeting but have agricultural content"""
-    # Extract the agricultural part for processing
     agricultural_part = extract_agricultural_content(query)
     
-    # Process the agricultural part normally
     response = process_regular_agricultural_query(agricultural_part)
     
-    # Add a friendly greeting to the response
     if "error" not in response:
         greeting = get_friendly_greeting()
         response["answer"] = f"{greeting}\n\n{response['answer']}"
@@ -1489,20 +1595,15 @@ def process_query(query):
     
     normalized_query = query.lower().strip()
     
-    # First, check if this is a pure greeting
     if is_greeting_query(query):
         logger.info("Pure greeting detected")
         return handle_greeting_query(query)
     
-    # Then check if this is an agricultural query
     elif not is_agricultural_query(query):
         logger.info("Non-agricultural query detected")
         return handle_non_agricultural_query(query)
     
-    # Finally, process agricultural queries (which may include greetings + content)
     else:
-        # Check if it starts with a greeting but has agricultural content
-        # IMPORTANT: Only treat as mixed if we actually found and removed a greeting
         agricultural_part = extract_agricultural_content(query)
         has_greeting_removed = agricultural_part.lower() != normalized_query
         
@@ -1527,7 +1628,6 @@ def format_response(state, season_info):
         "crop_suggestions": state["crop_suggestions"]
     }
     
-    # Add location data if available
     if state["user_location"] and "error" not in state["user_location"]:
         response["location"] = {
             "city": state["user_location"].get("city", "Unknown"),
@@ -1535,11 +1635,9 @@ def format_response(state, season_info):
             "country": state["user_location"].get("country", "Unknown")
         }
     
-    # Add weather data if available
     if state["weather_data"] and "error" not in state["weather_data"]:
         response["weather"] = state["weather_data"]
     
-    # Add seasonal information
     response["season"] = season_info
     
     return response
@@ -1590,42 +1688,259 @@ def display_response(response):
     
     print("="*60)
 
-def main():
-    """Main function"""
-    # Initialize components
-    initialize_components()
-    
-    # Display vector store information
-    display_vector_store_info()
+# ===== DOCUMENT UPDATE FUNCTION =====
+def update_vector_store_with_new_documents():
+    """Update Pinecone vector store with new documents"""
+    try:
+        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+        index = pc.Index(PINECONE_INDEX_NAME)
+        current_stats = index.describe_index_stats()
+        current_count = current_stats.get('total_vector_count', 0)
+        
+        documents = load_pdf_documents()
+        if not documents:
+            logger.info("No new documents found")
+            return {"status": "no_new_documents", "current_count": current_count}
+        
+        chunks = create_chunks(documents)
+        new_count = len(chunks)
+        
+        if new_count <= current_count:
+            logger.info("No new documents to add")
+            return {"status": "no_new_documents", "current_count": current_count}
+        
+        embedding_model = get_embedding_model()
+        
+        for chunk in chunks:
+            chunk.metadata.update({
+                'ingestion_time': datetime.now().isoformat(),
+                'document_version': '1.0',
+                'processed_by': 'agro_assistant_v2'
+            })
+        
+        vector_store = PineconeVectorStore.from_documents(
+            documents=chunks,
+            embedding=embedding_model,
+            index_name=PINECONE_INDEX_NAME
+        )
+        
+        logger.info(f"Updated Pinecone with {new_count} vectors (was {current_count})")
+        
+        return {
+            "status": "success",
+            "documents_added": new_count - current_count,
+            "total_vectors": new_count,
+            "previous_count": current_count
+        }
+        
+    except Exception as e:
+        logger.error(f"Document update failed: {str(e)}")
+        API_ERRORS.labels(api_name='pinecone').inc()
+        return {"status": "error", "error": str(e)}
 
+def cleanup_old_cache():
+    """Clean up expired cache files"""
+    try:
+        current_time = time.time()
+        for filename in os.listdir(CACHE_DIR):
+            if filename.endswith('.pkl'):
+                filepath = os.path.join(CACHE_DIR, filename)
+                file_time = os.path.getmtime(filepath)
+                cache_age_hours = (current_time - file_time) / 3600
+                
+                if cache_age_hours > CACHE_EXPIRY_HOURS:
+                    os.remove(filepath)
+                    logger.info(f"Removed expired cache: {filename}")
+    except Exception as e:
+        logger.error(f"Cache cleanup error: {str(e)}")
+
+def display_system_info(health_status):
+    """Display comprehensive system information"""
+    print("\n" + "="*70)
+    print("🌱 AGRO ASSISTANT - PRODUCTION READY")
+    print("="*70)
+    print(f"✅ Health Status: {health_status.get('status', 'unknown')}")
+    print(f"📊 Metrics: http://localhost:{Config.METRICS_PORT}")
+    print(f"🔧 Version: 2.0.0")
+    print(f"🐳 Environment: Production")
+    print("="*70)
+    
+    stats = get_vector_store_stats()
+    if "error" not in stats:
+        print(f"📚 Vector Store: {stats['total_vectors']} vectors")
+    
     show_pinecone_setup_guide()
 
-    print("🌱 Welcome to Agro Assistant!")
-    print("I can help with agricultural questions using your documents, location, and weather data.")
-    print("Type 'exit' to quit.\n")
+def start_background_tasks(health_checker):
+    """Start background maintenance tasks"""
+    def health_monitor():
+        while True:
+            health_checker.check_health()
+            time.sleep(Config.HEALTH_CHECK_INTERVAL)
     
-    while True:
-        try:
-            query = input("📝 Your question: ").strip()
-            
-            if query.lower() in ['exit', 'quit', 'bye']:
-                print("👋 Goodbye!")
+    def cache_cleaner():
+        while True:
+            cleanup_old_cache()
+            time.sleep(3600)
+    
+    threading.Thread(target=health_monitor, daemon=True).start()
+    threading.Thread(target=cache_cleaner, daemon=True).start()
+
+def handle_document_update():
+    """Handle document updates with progress tracking"""
+    print("🔄 Checking for new documents...")
+    result = update_vector_store_with_new_documents()
+    
+    if result["status"] == "success":
+        print(f"✅ Documents updated successfully!")
+        print(f"📊 Added {result['documents_added']} new documents")
+        print(f"📚 Total vectors: {result['total_vectors']}")
+    elif result["status"] == "no_new_documents":
+        print("ℹ️ No new documents found")
+    else:
+        print(f"❌ Update failed: {result.get('error', 'Unknown error')}")
+
+def display_health_status():
+    """Display current system health"""
+    health_checker = HealthChecker()
+    health = health_checker.check_health()
+    
+    print("\n" + "="*50)
+    print("SYSTEM HEALTH STATUS")
+    print("="*50)
+    
+    # Safe access to health status
+    overall_status = health.get('status', 'unknown')
+    is_healthy = health.get('healthy', False)
+    
+    print(f"Overall Status: {'✅ HEALTHY' if is_healthy else '❌ UNHEALTHY'} ({overall_status})")
+    
+    checks = health.get('checks', {})
+    for check_name, check_result in checks.items():
+        status = "✅" if check_result else "❌"
+        print(f"{status} {check_name.replace('_', ' ').title()}")
+    
+    if 'error' in health:
+        print(f"🔴 Error: {health['error']}")
+    
+    print("="*50)
+
+def display_system_stats():
+    """Display system statistics"""
+    stats = get_vector_store_stats()
+    
+    print("\n" + "="*50)
+    print("SYSTEM STATISTICS")
+    print("="*50)
+    
+    if "error" not in stats:
+        print(f"📚 Vector Store: {stats['total_vectors']} vectors")
+        print(f"📐 Embedding Dimensions: {stats['embedding_dimensions']}")
+    
+    memory = psutil.virtual_memory()
+    print(f"💾 Memory Usage: {memory.percent}%")
+    
+    cpu = psutil.cpu_percent()
+    print(f"⚡ CPU Usage: {cpu}%")
+    
+    print("="*50)
+
+def setup_signal_handlers():
+    """Setup graceful shutdown handlers"""
+    def signal_handler(signum, frame):
+        logger.info(f"Received signal {signum}, shutting down gracefully...")
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+def main():
+    """Production main function with monitoring and health checks"""
+    setup_signal_handlers()
+    
+    # Start metrics server
+    start_http_server(Config.METRICS_PORT)
+    logger.info(f"Metrics server started on port {Config.METRICS_PORT}")
+    
+    # Initialize components
+    try:
+        initialize_components()
+        
+        # Health check
+        health_checker = HealthChecker()
+        health_status = health_checker.check_health()
+        
+        # Display system info even if health check fails
+        display_system_info(health_status)
+        
+        if not health_status.get('healthy', False):
+            logger.warning("System health check failed, but continuing with limited functionality")
+            print("⚠️  System has some issues, but continuing with limited functionality...")
+        
+        # Start background tasks
+        start_background_tasks(health_checker)
+        
+        # Main application loop
+        print("\n🌱 Welcome to Agro Assistant (Production)!")
+        print("Available commands:")
+        print("  • Ask any agricultural question")
+        print("  • 'update' - Update documents")
+        print("  • 'health' - System health check")
+        print("  • 'stats' - System statistics")
+        print("  • 'exit' - Quit application")
+        print()
+        
+        while True:
+            try:
+                query = input("📝 Your question: ").strip()
+                
+                if query.lower() in ['exit', 'quit', 'bye']:
+                    print("👋 Goodbye!")
+                    break
+                elif query.lower() == 'update':
+                    handle_document_update()
+                    continue
+                elif query.lower() == 'health':
+                    display_health_status()
+                    continue
+                elif query.lower() == 'stats':
+                    display_system_stats()
+                    continue
+                    
+                if not query:
+                    continue
+                
+                # Process query with monitoring
+                ACTIVE_QUERIES.inc()
+                start_time = time.time()
+                
+                try:
+                    response = process_query(query)
+                    QUERY_COUNTER.labels(
+                        llm_source=response.get('llm_source', 'unknown'),
+                        status='success'
+                    ).inc()
+                except Exception as e:
+                    QUERY_COUNTER.labels(llm_source='unknown', status='error').inc()
+                    response = {"error": f"Processing error: {str(e)}"}
+                finally:
+                    QUERY_DURATION.observe(time.time() - start_time)
+                    ACTIVE_QUERIES.dec()
+                
+                display_response(response)
+                
+            except KeyboardInterrupt:
+                print("\n👋 Goodbye!")
                 break
+            except Exception as e:
+                print(f"❌ System error: {str(e)}")
+                logger.error(f"Main loop error: {str(e)}")
                 
-            if not query:
-                continue
-                
-            # Process the query
-            response = process_query(query)
-            
-            # Display the response
-            display_response(response)
-            
-        except KeyboardInterrupt:
-            print("\n👋 Goodbye!")
-            break
-        except Exception as e:
-            print(f"❌ An error occurred: {str(e)}")
+    except KeyboardInterrupt:
+        logger.info("Application shutdown requested")
+    except Exception as e:
+        logger.error(f"Application error: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

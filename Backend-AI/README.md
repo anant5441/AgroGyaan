@@ -9,6 +9,7 @@
 - **Seasonal Intelligence**: Context-aware responses based on current agricultural seasons
 - **Agricultural Alerts**: Smart alerts based on weather conditions and seasonal patterns
 - **Crop Suggestions**: Personalized crop recommendations based on location and season
+- **Image Processing**: AI-powered image analysis using Google Gemini Vision for crop disease detection and plant identification
 - **Production Ready**: Comprehensive monitoring, health checks, and error handling
 - **Response Caching**: 24-hour intelligent caching system for improved performance
 - **Rate Limiting**: Built-in API rate limiting to prevent overuse
@@ -37,6 +38,14 @@
 - **Performance**: Optimized for production workloads
 - **Logging**: Structured logging for debugging and monitoring
 
+### 🖼️ Image Processing Features
+- **AI-Powered Image Analysis**: Google Gemini Vision for crop disease detection
+- **Multi-Format Support**: JPG, PNG, and WebP image processing
+- **Plant Identification**: Automatic crop and plant type recognition
+- **Disease Detection**: Advanced computer vision for agricultural disease diagnosis
+- **Treatment Recommendations**: AI-generated solutions based on image analysis
+- **Real-Time Processing**: Fast image analysis with optimized performance
+
 
 ## 📚 API Documentation
 
@@ -47,7 +56,7 @@ http://localhost:8000
 
 ### Endpoints
 
-#### 1. Chat Assistant
+#### 1. Chat Assistant (Text Only)
 ```http
 POST /api/chat
 Content-Type: application/json
@@ -57,7 +66,38 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+#### 1b. Chat with Image Analysis
+```http
+POST /api/chat-with-image
+Content-Type: multipart/form-data
+
+query: "What disease does this plant have?"
+image: <binary image data>
+```
+
+**Supported Image Formats**: JPG, PNG, WebP
+**Max Image Size**: 5MB
+
+**Response for Image Analysis:**
+```json
+{
+  "query": "What disease does this plant have?",
+  "image_analysis": {
+    "detected_object": "Rice plant with leaf symptoms",
+    "disease": "Bacterial leaf blight",
+    "confidence": 0.85,
+    "symptoms": ["Yellowish water-soaked lesions on leaves", "Drying and rolling of affected leaves"],
+    "recommendations": ["Apply copper-based fungicides", "Remove affected leaves", "Maintain proper spacing for air circulation"]
+  },
+  "answer": "Based on the image analysis, your rice plant shows symptoms of bacterial leaf blight...",
+  "llm_source": "Gemini Vision",
+  "location": {...},
+  "weather": {...},
+  "season": {...}
+}
+```
+
+#### 1c. Chat Assistant (Text) Response
 ```json
 {
   "query": "What crops should I plant in winter season?",
@@ -230,6 +270,8 @@ GET /stats
 - **Document retrieval and RAG implementation** using Pinecone vector database
 - **Response caching system** with 24-hour expiration and MD5 hashing
 - **Agricultural alerts and crop suggestions** based on weather and season
+- **Image processing with AI analysis**: Google Gemini Vision integration for crop disease detection, plant identification, and agricultural image understanding
+- **Multi-format image support**: JPG, PNG, and WebP image processing
 - **Rate limiting** and **security validation** for production use
 - **Health monitoring** and **metrics collection** for system observability
 - **Background tasks** for cache cleanup and health checks
@@ -247,6 +289,7 @@ GET /stats
 
 ## 🔄 Workflow
 
+### Text-Based Chat Flow
 1. **Query Processing**: User query received via API with input validation
 2. **Query Classification**: Determine if query is agricultural, greeting, or other
 3. **Location Detection**: Automatic IP-based location detection with query extraction
@@ -257,6 +300,18 @@ GET /stats
 8. **Caching**: Response stored with MD5 hash for future queries (24-hour TTL)
 9. **Metrics Collection**: Performance and usage metrics recorded
 10. **API Response**: Structured JSON response sent to client with comprehensive data
+
+### Image-Based Chat Flow
+1. **Image Upload**: User uploads image (JPG, PNG, WebP) via multipart/form-data
+2. **Image Validation**: File format and size validation (max 5MB)
+3. **Image Processing**: Upload.UploadFile object converted to base64 or bytes
+4. **Gemini Vision Analysis**: Google Gemini Vision API analyzes the image
+5. **AI Interpretation**: Disease detection, plant identification, and health assessment
+6. **Context Integration**: Location, weather, and seasonal data combined with image analysis
+7. **Treatment Recommendations**: AI-generated solutions based on detected conditions
+8. **Response Formatting**: Structured response with image analysis results
+9. **Caching**: Image-based responses cached for similar queries
+10. **API Response**: Comprehensive agricultural advice with image insights
 
 
 ## 🚀 Getting Started

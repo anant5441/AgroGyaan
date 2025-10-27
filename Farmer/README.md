@@ -22,13 +22,18 @@ The Farmer frontend is a comprehensive agricultural platform that empowers farme
 - Responsive design for all devices
 
 #### 🤖 **AI Chat Assistant** (Global Component)
-- **API Endpoint**: `POST http://localhost:8000/api/chat`
+- **API Endpoints**: 
+  - `POST http://localhost:8000/api/chat` - Text-only chat
+  - `POST http://localhost:8000/api/chat-with-image` - Chat with image analysis
 - **Features**:
-  - Real-time chat interface
-  - Location-aware responses
-  - Weather data integration
-  - Agricultural alerts and crop suggestions
-  - Response caching for performance
+  - Real-time chat interface with streaming responses
+  - Image upload and analysis for crop disease detection
+  - Location-aware responses with automatic detection
+  - Weather data integration from OpenWeatherMap
+  - Agricultural alerts and crop suggestions based on season
+  - Response caching for improved performance
+  - Multi-model support (Groq primary with Gemini fallback)
+  - Conversation history with clear and reset options
 
 #### 🌱 **Crop Prediction** (`/crop-prediction`)
 - **NPK Prediction**: Advanced soil nutrient analysis
@@ -80,7 +85,7 @@ The Farmer frontend is a comprehensive agricultural platform that empowers farme
 
 ### Backend-AI Services (Port 8000)
 
-#### 1. AI Chat Assistant
+#### 1. AI Chat Assistant (Text Only)
 ```javascript
 // Usage in components/ai-assistant.jsx
 const response = await fetch("http://localhost:8000/api/chat", {
@@ -95,6 +100,19 @@ const response = await fetch("http://localhost:8000/api/chat", {
 {
   "query": "What crops should I plant in winter season?"
 }
+```
+
+#### 1b. AI Chat with Image
+```javascript
+// Usage in components/ai-assistant.jsx
+const formData = new FormData();
+formData.append("query", message); // Optional query
+formData.append("image", selectedImage); // Image file
+
+const response = await fetch("http://localhost:8000/api/chat-with-image", {
+  method: "POST",
+  body: formData
+});
 ```
 
 **Response:**
@@ -237,8 +255,11 @@ const response = await axios.post("http://127.0.0.1:8000/api/predict", formData)
 
 ### 🤖 AI-Powered Assistance
 - **Intelligent Chat**: Real-time farming advice with location awareness
+- **Image Analysis**: Upload crop images for disease detection and analysis
+- **Streaming Responses**: Real-time streaming of AI-generated responses
 - **Context-Aware Responses**: Weather and seasonal data integration
 - **Multi-Model Support**: Groq Llama 3.1 with Google Gemini fallback
+- **Conversation Management**: Clear and reset conversation history
 
 ### 📊 Data Visualization
 - **Interactive Charts**: Market price trends and crop data
@@ -256,11 +277,6 @@ Create a `.env` file in the root directory:
 ```env
 PIXABAY_API_KEY=your_pixabay_api_key
 ```
-
-
-
-
-
 
 
 ## 📄 License

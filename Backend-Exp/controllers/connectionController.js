@@ -96,34 +96,34 @@ export const getUnconnectedUsers = async (req, res, next) => {
 
 /**
  * GET /api/users/get-room-id
- * Returns a deterministic room ID for two given user IDs
+ * Returns a deterministic room ID for two given user IDs with the other user's details
  */
 export const getRoomId = async (req, res, next) => {
     try {
-    const { id1, id2 } = req.query;
+        const { id1, id2 } = req.query;
 
-    // Validate inputs
+        // Validate inputs
         if (!id1 || !id2) {
-        const error = new Error('Both id1 and id2 are required');
-        error.statusCode = 400;
-        error.code = 'MISSING_IDS';
-        throw error;
+            const error = new Error('Both id1 and id2 are required');
+            error.statusCode = 400;
+            error.code = 'MISSING_IDS';
+            throw error;
         }
 
         // Check if IDs are the same
         if (id1 === id2) {
-        const error = new Error('Cannot create room with same user');
-        error.statusCode = 400;
-        error.code = 'SAME_USER_IDS';
-        throw error;
+            const error = new Error('Cannot create room with same user');
+            error.statusCode = 400;
+            error.code = 'SAME_USER_IDS';
+            throw error;
         }
 
         // Validate ObjectId format for both IDs
         if (!mongoose.Types.ObjectId.isValid(id1) || !mongoose.Types.ObjectId.isValid(id2)) {
-        const error = new Error('Invalid user ID format');
-        error.statusCode = 400;
-        error.code = 'INVALID_USER_ID';
-        throw error;
+            const error = new Error('Invalid user ID format');
+            error.statusCode = 400;
+            error.code = 'INVALID_USER_ID';
+            throw error;
         }
 
         // Sort IDs lexicographically to maintain consistent order
@@ -132,11 +132,20 @@ export const getRoomId = async (req, res, next) => {
         // Generate room ID in format: smallerId_largerId
         const roomId = `${sortedIds[0]}_${sortedIds[1]}`;
 
-        //Store room ID in both users' rooms_id arrays (only if not already present)
+        // Store room ID in both users' rooms_id arrays (only if not already present)
         const updatePromises = [];
 
-        const user1 = await User.findById(id1);
-        const user2 = await User.findById(id2);
+        // Fetch users with name and role fields
+        const user1 = await User.findById(id1).select('name role rooms_id');
+        const user2 = await User.findById(id2).select('name role rooms_id');
+
+        // Check if both users exist
+        if (!user1 || !user2) {
+            const error = new Error('One or both users not found');
+            error.statusCode = 404;
+            error.code = 'USER_NOT_FOUND';
+            throw error;
+        }
 
         // Add room ID to user1 if not already present
         if (!user1.rooms_id.includes(roomId)) {
@@ -165,9 +174,20 @@ export const getRoomId = async (req, res, next) => {
             await Promise.all(updatePromises);
         }
 
+        // ✅ Determine which user is "me" and which is "other"
+        // Typically, the first ID (id1) is considered the current user
+        // You can adjust this logic based on how you pass the IDs
+        const currentUserId = id1; // Assuming id1 is the current user
+        const otherUser = currentUserId === user1._id.toString() ? user2 : user1;
+
         res.json({
             success: true,
             room_id: roomId,
+            other_user: {
+                id: otherUser._id,
+                name: otherUser.name,
+                role: otherUser.role
+            },
             message: updatePromises.length > 0 ? 'Room created and stored in both users' : 'Room already exists for both users'
         });
 
@@ -187,7 +207,7 @@ export const healthCheck = (req, res) => {
     });
     };
 
-//Function to manually add a room to users (if needed separately)
+// Function to manually add a room to users (if needed separately)
 export const addRoomToUsers = async (req, res, next) => {
     try {
         const { user_id1, user_id2 } = req.body;
@@ -216,9 +236,9 @@ export const addRoomToUsers = async (req, res, next) => {
             throw error;
         }
 
-        // Check if both users exist
-        const user1 = await User.findById(user_id1);
-        const user2 = await User.findById(user_id2);
+        // Check if both users exist and get their details
+        const user1 = await User.findById(user_id1).select('name role');
+        const user2 = await User.findById(user_id2).select('name role');
         
         if (!user1 || !user2) {
             const error = new Error('One or both users not found');
@@ -242,9 +262,19 @@ export const addRoomToUsers = async (req, res, next) => {
             { $addToSet: { rooms_id: roomId } }
         );
 
+        // ✅ Determine which user is "me" and which is "other"
+        // Assuming user_id1 is the current user making the request
+        const currentUserId = user_id1;
+        const otherUser = currentUserId === user1._id.toString() ? user2 : user1;
+
         res.json({
             success: true,
             room_id: roomId,
+            other_user: {
+                id: otherUser._id,
+                name: otherUser.name,
+                role: otherUser.role
+            },
             message: 'Room successfully added to both users'
         });
 

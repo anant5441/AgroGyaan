@@ -39,7 +39,6 @@ backoff
 bcrypt
 beautifulsoup4
 blinker
-blis
 build
 CacheControl
 cachetools
@@ -51,14 +50,6 @@ charset-normalizer
 chromadb
 click
 cloudpathlib
-colorama
-coloredlogs
-confection
-contourpy
-cryptography
-ctranslate2
-cycler
-cymem
 dataclasses-json
 deepgram-sdk
 Deprecated
@@ -67,9 +58,7 @@ distro
 dnspython
 dotenv
 duckduckgo_search
-faiss-cpu
 fastapi
-faster-whisper
 ffmpeg
 filelock
 filetype
@@ -148,7 +137,6 @@ langgraph-prebuilt
 langgraph-sdk
 langsmith
 language_data
-llvmlite
 lxml
 marisa-trie
 markdown-it-py
@@ -162,13 +150,9 @@ narwhals
 neo4j
 nest-asyncio
 networkx
-nltk
-numba
 numpy
 oauthlib
 openai
-openai-whisper @ git+https://github.com/openai/whisper.git
-opencv-python
 opentelemetry-api
 opentelemetry-exporter-otlp-proto-common
 opentelemetry-exporter-otlp-proto-grpc
@@ -186,7 +170,6 @@ packaging
 pandas
 pdf2image
 pi_heif
-pikepdf
 pillow
 postgrest
 posthog
@@ -226,11 +209,9 @@ safetensors
 sarvamai
 scikit-learn
 scipy
-sentence-transformers
 SpeechRecognition
 SQLAlchemy
 sqlite-vec
-srsly
 standard-aifc
 standard-chunk
 starlette
@@ -243,15 +224,11 @@ supabase_auth
 supabase_functions
 sympy
 tenacity
-thinc
 threadpoolctl
 tiktoken
 timm
 tokenizers
 toml
-torch
-torchvision
-transformers
 typer
 typing-inspect
 typing-inspection
@@ -263,10 +240,6 @@ uritemplate
 urllib3
 uv
 uvicorn
-wasabi
-watchdog
-watchfiles
-weasel
 webencodings
 websocket-client
 websockets

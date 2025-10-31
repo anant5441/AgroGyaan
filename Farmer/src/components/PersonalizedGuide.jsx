@@ -275,6 +275,8 @@ import { Leaf, Recycle, Shield, Droplets, Loader2, MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import farmingProcessImage from "@/assets/farming-process-icons.jpg";
 
+const BASE_URL = "https://agrogyaan-b-ai.onrender.com";
+
 const PersonalizedGuide = () => {
   const [principles, setPrinciples] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -290,7 +292,7 @@ const PersonalizedGuide = () => {
         setError(null);
         
         const response = await fetch(
-          `http://127.0.0.1:8000/guide-region?location=${encodeURIComponent(demoLocation)}`
+          `${BASE_URL}/guide-region?location=${encodeURIComponent(demoLocation)}`
         );
         
         if (!response.ok) {

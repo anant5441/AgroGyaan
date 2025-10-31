@@ -270,6 +270,7 @@ import{ useEffect, useState } from 'react';
 // The icons are provided as a property on the window object by the CDN.
 import { Calendar, Thermometer, Droplets, Bug, AlertCircle } from "lucide-react";
 
+const BASE_URL = "https://agrogyaan-b-ai.onrender.com"
 
 // Utility function to generate classes for a badge-like appearance
 const getBadgeClasses = (isSecondary) => {
@@ -298,7 +299,9 @@ const CropGuide = ({ location,crop }) => {
         setLoading(true);
         // fetch organic guide from backend
         const res = await fetch(
-          `http://127.0.0.1:8000/guide-crop/?location=${location}&crop=${crop}`
+          `${BASE_URL}/guide-crop/?location=${encodeURIComponent(
+            location
+          )}&crop=${encodeURIComponent(crop)}`
         );
         const data = await res.json();
         setGuide(data.guide);
@@ -449,10 +452,11 @@ const CropGuide = ({ location,crop }) => {
           </div>
           <div className="flex justify-center">
             <img
-              src={images[0].webformatURL}
+              src={images[0]?.webformatURL || "https://placehold.co/600x400?text=No+Image"}
               alt="Organic crops"
               className="rounded-2xl shadow-lg shadow-gray-400 max-w-full h-auto"
             />
+
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { MessageCircle, X, Send, Bot, User, Trash2, Image, XCircle } from "lucide-react";
+const BASE_URL = "https://agrogyaan-b-ai.onrender.com"
 
 export function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -83,13 +84,13 @@ export function AIAssistant() {
     setIsLoading(true);
 
     try {
-      let endpoint = "http://localhost:8000/api/chat";
+      let endpoint = BASE_URL + "/api/chat";
       let body;
       let headers = {};
 
       if (selectedImage) {
         // Use image endpoint with FormData
-        endpoint = "http://localhost:8000/api/chat-with-image";
+        endpoint = BASE_URL+"/api/chat-with-image";
         const formData = new FormData();
         
         if (message.trim()) {
@@ -101,7 +102,7 @@ export function AIAssistant() {
         // Don't set Content-Type header for FormData - browser will set it with boundary
       } else {
         // Use text-only endpoint with JSON
-        endpoint = "http://localhost:8000/api/chat";
+        endpoint = BASE_URL+"/api/chat";
         body = JSON.stringify({ query: message });
         headers = {
           "Content-Type": "application/json",

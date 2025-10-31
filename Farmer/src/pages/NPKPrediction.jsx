@@ -35,7 +35,7 @@ const NPKPrediction = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/api/predict", formData);
+      const response = await axios.post("https://agrogyaan-b-ai.onrender.com/api/predict", formData);
       setPrediction(response.data);
     //   toast({
     //     title: "Prediction Complete",

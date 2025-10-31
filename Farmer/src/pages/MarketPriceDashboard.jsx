@@ -276,7 +276,7 @@ export function MarketPriceDashboard() {
         }
         
         const response = await fetch(
-          `http://127.0.0.1:8000/api/market-price?${params.toString()}`
+          `https://agrogyaan-b-ai.onrender.com/api/market-price?${params.toString()}`
         );
         
         if (!response.ok) {

@@ -29,6 +29,10 @@ app.include_router(crop_recommendation_router.router, prefix="/api", tags=["crop
 async def root():
     return {"message": "AI Farming Assistant API is running"}
 
+@app.head("/")
+async def head():
+    return 1
+
 @app.get("/health")
 async def health_check():
     """Comprehensive health check endpoint"""

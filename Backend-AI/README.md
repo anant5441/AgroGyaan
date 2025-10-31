@@ -54,6 +54,11 @@
 http://localhost:8000
 ```
 
+### Deployed (Production) URL
+```
+https://agrogyaan-b-ai.onrender.com/
+```
+
 ### Endpoints
 
 #### 1. Chat Assistant (Text Only)

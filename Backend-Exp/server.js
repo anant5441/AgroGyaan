@@ -45,11 +45,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
-// app.use((req, res, next) => {
-//     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-//     next();
-// });
+//Request logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+});
+
 
 app.head('/', (req, res) => {
   res.status(200).end();
@@ -74,6 +75,10 @@ app.get('/api/test', (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/crop-listings", cropListingRoutes);
+
+app.get('/api/users/debug', (req, res) => {
+  res.json({ message: 'User routes are working!' });
+});
 
 // 404 Handler - MUST be after all routes
 app.use(notFound);

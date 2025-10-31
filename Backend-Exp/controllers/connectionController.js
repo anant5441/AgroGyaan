@@ -1,0 +1,254 @@
+import User from '../models/User.js';
+import mongoose from 'mongoose';
+
+/**
+ * GET /api/users/unconnected-users
+ * Returns a list of user IDs that are not connected to the given user
+ */
+export const getUnconnectedUsers = async (req, res, next) => {
+    try {
+        const { user_id } = req.query;
+
+    // Validate input
+    if (!user_id) {
+        const error = new Error('User ID is required');
+        error.statusCode = 400;
+        error.code = 'MISSING_USER_ID';
+        throw error;
+    }
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(user_id)) {
+        const error = new Error('Invalid user ID format');
+        error.statusCode = 400;
+        error.code = 'INVALID_USER_ID';
+        throw error;
+    }
+
+    // Fetch all users from the database
+    const allUsers = await User.find({}).select('_id rooms_id');
+    
+    if (!allUsers || allUsers.length === 0) {
+        const error = new Error('No users found in database');
+        error.statusCode = 404;
+        error.code = 'NO_USERS_FOUND';
+        throw error;
+    }
+
+    // Find the current user
+    const currentUser = allUsers.find(user => user._id.toString() === user_id);
+    
+    if (!currentUser) {
+        const error = new Error('User not found');
+        error.statusCode = 404;
+        error.code = 'USER_NOT_FOUND';
+        throw error;
+    }
+
+    // Extract connected user IDs from rooms_id
+    const connectedIds = new Set();
+    
+    if (currentUser.rooms_id && currentUser.rooms_id.length > 0) {
+        currentUser.rooms_id.forEach(roomId => {
+            try {
+            // Split room_id by underscore
+            const parts = roomId.split('_');
+            
+            // Room should contain exactly 2 user IDs
+            if (parts.length === 2) {
+                const [id1, id2] = parts;
+                
+                // If current user matches either part, add the other to connectedIds
+                if (user_id === id1) {
+                connectedIds.add(id2);
+                } else if (user_id === id2) {
+                connectedIds.add(id1);
+                }
+            }
+            } catch (error) {
+            console.warn(`Invalid room format: ${roomId}`, error);
+            }
+        });
+    }
+
+    // Get all user IDs from database
+    const allUserIds = allUsers.map(user => user._id.toString());
+    
+    // Find unconnected user IDs (not in connectedIds and not the current user)
+    const unconnectedIds = allUserIds.filter(userId => 
+        userId !== user_id && !connectedIds.has(userId)
+    );
+
+    res.json({
+        success: true,
+        unconnected_ids: unconnectedIds,
+        metadata: {
+            total_users: allUserIds.length,
+            connected_users: connectedIds.size,
+            unconnected_users: unconnectedIds.length
+        }
+    });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * GET /api/users/get-room-id
+ * Returns a deterministic room ID for two given user IDs
+ */
+export const getRoomId = async (req, res, next) => {
+    try {
+    const { id1, id2 } = req.query;
+
+    // Validate inputs
+        if (!id1 || !id2) {
+        const error = new Error('Both id1 and id2 are required');
+        error.statusCode = 400;
+        error.code = 'MISSING_IDS';
+        throw error;
+        }
+
+        // Check if IDs are the same
+        if (id1 === id2) {
+        const error = new Error('Cannot create room with same user');
+        error.statusCode = 400;
+        error.code = 'SAME_USER_IDS';
+        throw error;
+        }
+
+        // Validate ObjectId format for both IDs
+        if (!mongoose.Types.ObjectId.isValid(id1) || !mongoose.Types.ObjectId.isValid(id2)) {
+        const error = new Error('Invalid user ID format');
+        error.statusCode = 400;
+        error.code = 'INVALID_USER_ID';
+        throw error;
+        }
+
+        // Sort IDs lexicographically to maintain consistent order
+        const sortedIds = [id1, id2].sort();
+        
+        // Generate room ID in format: smallerId_largerId
+        const roomId = `${sortedIds[0]}_${sortedIds[1]}`;
+
+        //Store room ID in both users' rooms_id arrays (only if not already present)
+        const updatePromises = [];
+
+        const user1 = await User.findById(id1);
+        const user2 = await User.findById(id2);
+
+        // Add room ID to user1 if not already present
+        if (!user1.rooms_id.includes(roomId)) {
+            updatePromises.push(
+                User.findByIdAndUpdate(
+                    id1,
+                    { $addToSet: { rooms_id: roomId } }, // $addToSet prevents duplicates
+                    { new: true }
+                )
+            );
+        }
+
+        // Add room ID to user2 if not already present
+        if (!user2.rooms_id.includes(roomId)) {
+            updatePromises.push(
+                User.findByIdAndUpdate(
+                    id2,
+                    { $addToSet: { rooms_id: roomId } },
+                    { new: true }
+                )
+            );
+        }
+
+        // Wait for both updates to complete
+        if (updatePromises.length > 0) {
+            await Promise.all(updatePromises);
+        }
+
+        res.json({
+            success: true,
+            room_id: roomId,
+            message: updatePromises.length > 0 ? 'Room created and stored in both users' : 'Room already exists for both users'
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * GET /api/users/health
+ * Health check endpoint for users routes
+ */
+export const healthCheck = (req, res) => {
+    res.json({
+        success: true,
+        message: 'Users API is healthy'
+    });
+    };
+
+//Function to manually add a room to users (if needed separately)
+export const addRoomToUsers = async (req, res, next) => {
+    try {
+        const { user_id1, user_id2 } = req.body;
+
+        // Validate inputs
+        if (!user_id1 || !user_id2) {
+            const error = new Error('Both user_id1 and user_id2 are required');
+            error.statusCode = 400;
+            error.code = 'MISSING_USER_IDS';
+            throw error;
+        }
+
+        // Check if IDs are the same
+        if (user_id1 === user_id2) {
+            const error = new Error('Cannot create room with same user');
+            error.statusCode = 400;
+            error.code = 'SAME_USER_IDS';
+            throw error;
+        }
+
+        // Validate ObjectId format for both IDs
+        if (!mongoose.Types.ObjectId.isValid(user_id1) || !mongoose.Types.ObjectId.isValid(user_id2)) {
+            const error = new Error('Invalid user ID format');
+            error.statusCode = 400;
+            error.code = 'INVALID_USER_ID';
+            throw error;
+        }
+
+        // Check if both users exist
+        const user1 = await User.findById(user_id1);
+        const user2 = await User.findById(user_id2);
+        
+        if (!user1 || !user2) {
+            const error = new Error('One or both users not found');
+            error.statusCode = 404;
+            error.code = 'USER_NOT_FOUND';
+            throw error;
+        }
+
+        // Generate room ID
+        const sortedIds = [user_id1, user_id2].sort();
+        const roomId = `${sortedIds[0]}_${sortedIds[1]}`;
+
+        // Add room to both users
+        await User.findByIdAndUpdate(
+            user_id1,
+            { $addToSet: { rooms_id: roomId } }
+        );
+
+        await User.findByIdAndUpdate(
+            user_id2,
+            { $addToSet: { rooms_id: roomId } }
+        );
+
+        res.json({
+            success: true,
+            room_id: roomId,
+            message: 'Room successfully added to both users'
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};

@@ -31,6 +31,10 @@ const userSchema = new mongoose.Schema({
     trust_score: {
         type: Number,
         default: 0.0
+    },
+    rooms_id: {
+    type: [String], // Array of strings
+    default: [] // Initialize as empty array
     }
 }, {
   timestamps: true // This will add createdAt and updatedAt fields

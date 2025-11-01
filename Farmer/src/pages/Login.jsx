@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +83,85 @@ const useToast = () => {
   };
 };
 
+// LocalStorage utility functions
+const storageUtils = {
+  // Save user data to localStorage
+  setUserData: (userData, rememberMe = false) => {
+    try {
+      const dataToStore = {
+        ...userData,
+        timestamp: new Date().toISOString()
+      };
+      
+      if (rememberMe) {
+        localStorage.setItem('agrogyaan_user', JSON.stringify(dataToStore));
+        localStorage.setItem('agrogyaan_token', userData.token);
+      } else {
+        sessionStorage.setItem('agrogyaan_user', JSON.stringify(dataToStore));
+        sessionStorage.setItem('agrogyaan_token', userData.token);
+      }
+      
+      console.log('User data saved to storage:', {
+        userId: userData.user?._id || userData.user?.id,
+        rememberMe
+      });
+    } catch (error) {
+      console.error('Error saving user data to storage:', error);
+    }
+  },
+
+  // Get user data from localStorage
+  getUserData: () => {
+    try {
+      let userData = localStorage.getItem('agrogyaan_user') || sessionStorage.getItem('agrogyaan_user');
+      let token = localStorage.getItem('agrogyaan_token') || sessionStorage.getItem('agrogyaan_token');
+      
+      if (userData) {
+        const parsedData = JSON.parse(userData);
+        console.log('Retrieved user data from storage:', {
+          userId: parsedData.user?._id || parsedData.user?.id,
+          timestamp: parsedData.timestamp
+        });
+        return { ...parsedData, token };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error retrieving user data from storage:', error);
+      return null;
+    }
+  },
+
+  // Clear user data from localStorage
+  clearUserData: () => {
+    try {
+      localStorage.removeItem('agrogyaan_user');
+      localStorage.removeItem('agrogyaan_token');
+      sessionStorage.removeItem('agrogyaan_user');
+      sessionStorage.removeItem('agrogyaan_token');
+      console.log('User data cleared from storage');
+    } catch (error) {
+      console.error('Error clearing user data from storage:', error);
+    }
+  },
+
+  // Check if user is logged in
+  isLoggedIn: () => {
+    const userData = storageUtils.getUserData();
+    return !!userData;
+  },
+
+  // Get current user ID
+  getCurrentUserId: () => {
+    const userData = storageUtils.getUserData();
+    return userData?.user?._id || userData?.user?.id || null;
+  },
+
+  // Get current user token
+  getCurrentUserToken: () => {
+    return localStorage.getItem('agrogyaan_token') || sessionStorage.getItem('agrogyaan_token') || null;
+  }
+};
+
 const AuthPage = () => {
   const navigate = useNavigate();
   const { toast, ToastComponent } = useToast();
@@ -92,7 +171,7 @@ const AuthPage = () => {
   const [userRole, setUserRole] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLogin, setIsLogin] = useState(true); // Toggle between login and signup
+  const [isLogin, setIsLogin] = useState(true);
   
   const [loginData, setLoginData] = useState({
     identifier: '',
@@ -107,6 +186,22 @@ const AuthPage = () => {
     confirmPassword: '',
     role: ''
   });
+
+  // Check if user is already logged in on component mount
+  useEffect(() => {
+    const userData = storageUtils.getUserData();
+    if (userData) {
+      console.log('User already logged in:', {
+        userId: userData.user?._id || userData.user?.id,
+        name: userData.user?.name,
+        role: userData.user?.role
+      });
+      
+      // Optionally auto-redirect if user is already logged in
+      // const redirectUrl = getRedirectUrlForRole(userData.user?.role, userData.token, userData.user);
+      // window.location.href = redirectUrl;
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -155,12 +250,33 @@ const AuthPage = () => {
       // Save token and user data from actual response
       const { token, user } = data;
 
-      // localStorage.setItem('token', token);
-      // if (rememberMe) {
-      //   localStorage.setItem('user', JSON.stringify(user));
-      // } else {
-      //   sessionStorage.setItem('user', JSON.stringify(user));
-      // }
+      // ✅ STORE USER DATA IN LOCALSTORAGE
+      const userDataToStore = {
+        token,
+        user: {
+          _id: user._id, // MongoDB ObjectId
+          id: user._id, // Also store as id for consistency
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          language_pref: user.language_pref,
+          trust_score: user.trust_score,
+          rooms_id: user.rooms_id || [],
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      };
+
+      storageUtils.setUserData(userDataToStore, rememberMe);
+
+      // Verify storage worked
+      const storedData = storageUtils.getUserData();
+      console.log('User data stored successfully:', {
+        userId: storedData?.user?._id,
+        name: storedData?.user?.name,
+        role: storedData?.user?.role
+      });
 
       // Show success toast
       toast({
@@ -171,26 +287,10 @@ const AuthPage = () => {
       // Wait a moment for the user to see the success message
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // // Redirect based on role
-      // switch (userRole) {
-      //   case 'farmer':
-      //     window.location.href = 'http://localhost:5173/';
-      //     break;
-      //   case 'buyer':
-      //     window.location.href = 'http://localhost:5174/';
-      //     break;
-      //   case 'supplier':
-      //     window.location.href = 'http://localhost:5175/';
-      //     break;
-      //   default:
-      //     window.location.href = '/';
-
       // Redirect with token in URL parameters
-  // const port = getPortForRole(userRole);
-    const redirectUrl = getRedirectUrlForRole(userRole, token, user);
-    window.dispatchEvent(new Event("storage"));  
-    window.location.href = redirectUrl;
-      
+      const redirectUrl = getRedirectUrlForRole(userRole, token, user);
+      window.dispatchEvent(new Event("storage"));  
+      window.location.href = redirectUrl;
 
     } catch (error) {
       console.error('Login error:', error);
@@ -220,31 +320,6 @@ const AuthPage = () => {
       setIsLoading(false);
     }
   };
-
-  const getRedirectUrlForRole = (role, token, user) => {
-    let baseUrl;
-    
-    switch(role) {
-      case 'farmer':
-        baseUrl = 'https://farmer-bice.vercel.app/';
-        break;
-      case 'buyer':
-        baseUrl = 'https://buyer-iota.vercel.app/';
-        break;
-      case 'supplier':
-        baseUrl = 'https://equip-seller.vercel.app/';
-        break;
-      default:
-        baseUrl = 'http://localhost:5173/';
-    }
-    
-    const redirectUrl = new URL(baseUrl);
-    redirectUrl.searchParams.set('token', token);
-    redirectUrl.searchParams.set('user', encodeURIComponent(JSON.stringify(user)));
-    
-    return redirectUrl.toString();
-  };
-
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -319,35 +394,42 @@ const AuthPage = () => {
 
       // Save token and user data from actual response
       const { token, user } = loginData;
-      // localStorage.setItem('token', token);
-      // if (rememberMe) {
-      //   localStorage.setItem('user', JSON.stringify(user));
-      // } else {
-      //   sessionStorage.setItem('user', JSON.stringify(user));
-      // }
+
+      // ✅ STORE USER DATA IN LOCALSTORAGE
+      const userDataToStore = {
+        token,
+        user: {
+          _id: user._id, // MongoDB ObjectId
+          id: user._id, // Also store as id for consistency
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          language_pref: user.language_pref,
+          trust_score: user.trust_score,
+          rooms_id: user.rooms_id || [],
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      };
+
+      storageUtils.setUserData(userDataToStore, rememberMe);
+
+      // Verify storage worked
+      const storedData = storageUtils.getUserData();
+      console.log('User data stored successfully after signup:', {
+        userId: storedData?.user?._id,
+        name: storedData?.user?.name,
+        role: storedData?.user?.role
+      });
 
       // Wait a moment for the user to see the success message
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Redirect based on role
-      // switch (signupData.role) {
-      //   case 'farmer':
-      //     window.location.href = 'http://localhost:5173/';
-      //     break;
-      //   case 'buyer':
-      //     window.location.href = 'http://localhost:5174/';
-      //     break;
-      //   case 'supplier':
-      //     window.location.href = 'http://localhost:5175/';
-      //     break;
-      //   default:
-      //     window.location.href = '/';
-      // }
-
       // Redirect with token in URL parameters
-  const redirectUrl = getRedirectUrlForRole(signupData.role, token, user);
-  window.dispatchEvent(new Event("storage"));    
-  window.location.href = redirectUrl;
+      const redirectUrl = getRedirectUrlForRole(signupData.role, token, user);
+      window.dispatchEvent(new Event("storage"));    
+      window.location.href = redirectUrl;
 
     } catch (error) {
       console.error('Signup error:', error);
@@ -374,6 +456,30 @@ const AuthPage = () => {
     }
   };
 
+  const getRedirectUrlForRole = (role, token, user) => {
+    let baseUrl;
+    
+    switch(role) {
+      case 'farmer':
+        baseUrl = 'https://farmer-bice.vercel.app/';
+        break;
+      case 'buyer':
+        baseUrl = 'https://buyer-iota.vercel.app/';
+        break;
+      case 'supplier':
+        baseUrl = 'https://equip-seller.vercel.app/';
+        break;
+      default:
+        baseUrl = 'http://localhost:5173/';
+    }
+    
+    const redirectUrl = new URL(baseUrl);
+    redirectUrl.searchParams.set('token', token);
+    redirectUrl.searchParams.set('user', encodeURIComponent(JSON.stringify(user)));
+    
+    return redirectUrl.toString();
+  };
+
   const handleLoginInputChange = (field, value) => {
     setLoginData(prev => ({ ...prev, [field]: value }));
   };
@@ -387,9 +493,23 @@ const AuthPage = () => {
     setUserRole('');
   };
 
+  // Function to manually clear user data (for logout)
+  const handleLogout = () => {
+    storageUtils.clearUserData();
+    toast({
+      title: "Logged out successfully",
+      description: "Your session has been cleared"
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 dark:from-green-900 dark:to-brown  -800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 dark:from-green-900 dark:to-brown-800 flex items-center justify-center p-4">
       {ToastComponent}
+      
+      {/* Debug info - remove in production */}
+      <div className="fixed top-4 left-4 bg-black/80 text-white p-2 rounded text-xs">
+        Current User ID: {storageUtils.getCurrentUserId() || 'Not logged in'}
+      </div>
       
       <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 items-center">
         

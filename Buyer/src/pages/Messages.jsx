@@ -32,6 +32,7 @@ const Messages = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const [unconnectedList,setUnconnectedList] = useState([])
   const [currentUser, setcurrentUser] = useState({
     id: 'temp',
     displayName: 'Demo Farmer',
@@ -73,22 +74,40 @@ const [farmersList,setFarmerList] = useState([
       // Placeholder for any initial data fetching if needed
       if(currentUser.id === "temp") return
       let URL = BaseURL + "/api/users/my-rooms?user_id=" + encodeURIComponent(currentUser["id"]);
-      console.log(currentUser)
-      console.log(URL)
       try {
         const response = await fetch(URL);
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
         const data = await response.json();
-        console.log(data.rooms);
         setFarmerList(data?.rooms)
         return data;
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     }
-    fetchData();
+
+
+    const fetchUnconnected = async ()=> {
+      if(currentUser.id === "temp") return
+      let URL = BaseURL + "/api/users/unconnected-users?user_id=" + encodeURIComponent(currentUser["id"]);
+      try {
+        const response = await fetch(URL);
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        const data = await response.json();
+        setUnconnectedList(data?.unconnected_users);
+        return data;
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    }
+
+    setTimeout(() => {
+      fetchData();
+      fetchUnconnected();
+    },1000);
   }, []);
 
 
@@ -154,12 +173,14 @@ const [farmersList,setFarmerList] = useState([
     }
   }, [selectedFarmer]);
 
-  // Auto-scroll to bottom when new messages arrive
+// Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   }, [messages]);
 
-  const handleSendMessage = async (e) => {
+const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
 
     if (!newMessage.trim() || !farmersList[selectedFarmer]) return;
@@ -167,19 +188,20 @@ const [farmersList,setFarmerList] = useState([
     try {
       const farmer = farmersList[selectedFarmer];
       const roomId = farmer.id.toString();
+      const userId = currentUser.id;
 
       // First, create/update the room document with participants array
       const roomRef = doc(db, "rooms", roomId);
       await setDoc(roomRef, {
-        participants: [currentUser.uid, `farmer_${farmer.id}`],
+        participants: [userId, farmer.id],
         participantDetails: {
-          [currentUser.uid]: {
-            name: currentUser.displayName,
+          [userId]: {
+            name: currentUser.displayName || currentUser.email,
             type: 'buyer'
           },
-          [`farmer_${farmer.id}`]: {
+          [farmer.id]: {
             name: farmer.name,
-            role: farmer.role,
+            role: farmer.role || 'Farmer',
             type: 'farmer'
           }
         },
@@ -193,8 +215,8 @@ const [farmersList,setFarmerList] = useState([
       await addDoc(messagesRef, {
         text: newMessage.trim(),
         createdAt: serverTimestamp(),
-        senderId: currentUser.uid,
-        senderName: currentUser.displayName,
+        senderId: userId,
+        senderName: currentUser.displayName || currentUser.email,
         senderType: 'buyer'
       });
 
@@ -346,16 +368,16 @@ const [farmersList,setFarmerList] = useState([
                   messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.senderId === currentUser.uid ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${message.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${message.senderId === currentUser.uid
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${message.senderId === currentUser.id
                             ? 'bg-gradient-primary text-primary-foreground'
                             : 'bg-muted'
                           }`}
                       >
                         <p className="text-sm">{message.text}</p>
-                        <p className={`text-xs mt-1 ${message.senderId === currentUser.uid
+                        <p className={`text-xs mt-1 ${message.senderId === currentUser.id
                             ? 'text-primary-foreground/70'
                             : 'text-muted-foreground'
                           }`}>
@@ -433,7 +455,7 @@ const [farmersList,setFarmerList] = useState([
 
             <div className="p-4 max-h-[400px] overflow-y-auto">
               <div className="space-y-3">
-                {farmersList.map((farmer, index) => (
+                {unconnectedList.map((farmer, index) => (
                   <div
                     key={farmer.id}
                     onClick={() => handleSelectFarmerForNewChat(index)}

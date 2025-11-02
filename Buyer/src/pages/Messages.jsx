@@ -32,7 +32,8 @@ const Messages = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
-  const [unconnectedList,setUnconnectedList] = useState([])
+  const [unconnectedList,setUnconnectedList] = useState([]);
+  const [refresh,setrefresh] = useState(0);
   const [currentUser, setcurrentUser] = useState({
     id: 'temp',
     displayName: 'Demo Farmer',
@@ -108,7 +109,7 @@ const [farmersList,setFarmerList] = useState([
       fetchData();
       fetchUnconnected();
     },1000);
-  }, []);
+  }, [refresh]);
 
 
   // Format timestamp to readable time
@@ -250,9 +251,54 @@ const handleSendMessage = async (e) => {
     setShowNewChatModal(true);
   };
 
-  const handleSelectFarmerForNewChat = (index) => {
-    setSelectedFarmer(index);
-    setShowNewChatModal(false);
+ const handleSelectFarmerForNewChat = async (index) => {
+    try {
+      const selectedUnconnectedFarmer = unconnectedList[index];
+      
+      // Call API to create a new room
+      const URL = BaseURL + '/api/users/add-room';
+      const res = await fetch(URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id1: currentUser.id,
+          user_id2: selectedUnconnectedFarmer.id
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to create chat room');
+      }
+
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to create chat room');
+      }
+
+      // Add the new farmer to the farmers list using the room_id and other_user data
+      const newFarmer = {
+        id: data.room_id,
+        name: data.other_user.name,
+        role: data.other_user.role
+      };
+
+      setFarmerList(prev => [...prev, newFarmer]);
+
+      // Remove from unconnected list
+      setUnconnectedList(prev => prev.filter((_, i) => i !== index));
+
+      // Select the newly added farmer
+      setSelectedFarmer(farmersList.length);
+
+      setShowNewChatModal(false);
+      setrefresh(refresh+1)
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+      alert('Failed to start new chat. Please try again.');
+    }
   };
 
   return (

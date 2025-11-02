@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, use } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,17 +11,19 @@ import { Send, Search, MoreVertical, MessageCircle, Plus, Users } from 'lucide-r
 
 // Firebase imports
 import { db } from '@/lib/firebase';
-import { 
-  collection, 
-  addDoc, 
-  serverTimestamp, 
-  onSnapshot, 
-  query, 
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  onSnapshot,
+  query,
   orderBy,
   Timestamp,
   doc,
   setDoc
 } from 'firebase/firestore';
+
+const BaseURL = "http://127.0.0.1:5002"
 
 const Messages = () => {
   const [selectedFarmer, setSelectedFarmer] = useState(0);
@@ -30,15 +32,12 @@ const Messages = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
-
-  // Demo user (replace with actual auth later)
-  const currentUser = {
-    uid: 'demo-user-123',
+  const [currentUser, setcurrentUser] = useState({
+    id: 'temp',
     displayName: 'Demo Farmer',
     email: 'demo@agrogyan.com'
-  };
-
-  const farmersList = [
+  });
+const [farmersList,setFarmerList] = useState([
     {
       id: 1,
       name: "Ramesh Patel",
@@ -54,29 +53,66 @@ const Messages = () => {
       name: "Kumar Singh",
       role: "Farmer"
     }
-  ];
+  ])
+
+
+  useEffect(() => {
+    let stored = window.sessionStorage.getItem('user');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setcurrentUser(parsed);
+      } catch (err) {
+        console.error('Invalid JSON in sessionStorage:', err);
+      }
+    }else
+      return
+    
+
+    const fetchData = async () => {
+      // Placeholder for any initial data fetching if needed
+      if(currentUser.id === "temp") return
+      let URL = BaseURL + "/api/users/my-rooms?user_id=" + encodeURIComponent(currentUser["id"]);
+      console.log(currentUser)
+      console.log(URL)
+      try {
+        const response = await fetch(URL);
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        const data = await response.json();
+        console.log(data.rooms);
+        setFarmerList(data?.rooms)
+        return data;
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    }
+    fetchData();
+  }, []);
+
 
   // Format timestamp to readable time
   const formatTime = (timestamp) => {
     if (!timestamp) return 'Just now';
-    
+
     try {
       // If it's a Firestore timestamp
       if (timestamp instanceof Timestamp) {
-        return timestamp.toDate().toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        return timestamp.toDate().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit'
         });
       }
-      
+
       // If it's a regular Date object
       if (timestamp instanceof Date) {
-        return timestamp.toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        return timestamp.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit'
         });
       }
-      
+
       return 'Just now';
     } catch (error) {
       console.error('Error formatting time:', error);
@@ -89,10 +125,10 @@ const Messages = () => {
     if (farmersList[selectedFarmer]) {
       const farmer = farmersList[selectedFarmer];
       const roomId = farmer.id.toString();
-      
+
       // Reference to messages subcollection within a room document
       const messagesRef = collection(db, "rooms", roomId, "messages");
-      
+
       // Query messages ordered by creation time
       const q = query(
         messagesRef,
@@ -103,8 +139,8 @@ const Messages = () => {
         const messagesData = [];
         snapshot.forEach((doc) => {
           const data = doc.data();
-          messagesData.push({ 
-            id: doc.id, 
+          messagesData.push({
+            id: doc.id,
             ...data,
             createdAt: data.createdAt
           });
@@ -125,13 +161,13 @@ const Messages = () => {
 
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
-    
+
     if (!newMessage.trim() || !farmersList[selectedFarmer]) return;
 
     try {
       const farmer = farmersList[selectedFarmer];
       const roomId = farmer.id.toString();
-      
+
       // First, create/update the room document with participants array
       const roomRef = doc(db, "rooms", roomId);
       await setDoc(roomRef, {
@@ -151,7 +187,7 @@ const Messages = () => {
         lastMessageTime: serverTimestamp(),
         updatedAt: serverTimestamp()
       }, { merge: true }); // merge: true will update if exists, create if not
-      
+
       // Then add the message to the messages subcollection
       const messagesRef = collection(db, "rooms", roomId, "messages");
       await addDoc(messagesRef, {
@@ -229,15 +265,14 @@ const Messages = () => {
                   <div
                     key={farmer.id}
                     onClick={() => setSelectedFarmer(index)}
-                    className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
-                      selectedFarmer === index ? 'bg-muted border-r-2 border-primary' : ''
-                    }`}
+                    className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${selectedFarmer === index ? 'bg-muted border-r-2 border-primary' : ''
+                      }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center text-lg">
                         👨‍🌾
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm truncate">{farmer.name}</div>
                         <p className="text-xs text-muted-foreground">{farmer.role}</p>
@@ -246,7 +281,7 @@ const Messages = () => {
                   </div>
                 ))}
               </div>
-              
+
               {/* New Chat Floating Button */}
               <div className="absolute bottom-4 right-4 z-10">
                 <Button
@@ -280,15 +315,15 @@ const Messages = () => {
                 </Button>
               </div>
             </CardHeader>
-            
+
             <Separator />
-            
+
             <CardContent className="flex-1 flex flex-col p-0">
               {/* Messages Container */}
-              <div 
+              <div
                 ref={messagesContainerRef}
                 className="flex-1 p-4 space-y-4 overflow-y-auto max-h-[400px]"
-                style={{ 
+                style={{
                   scrollBehavior: 'smooth',
                   WebkitOverflowScrolling: 'touch'
                 }}
@@ -314,18 +349,16 @@ const Messages = () => {
                       className={`flex ${message.senderId === currentUser.uid ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
-                          message.senderId === currentUser.uid
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${message.senderId === currentUser.uid
                             ? 'bg-gradient-primary text-primary-foreground'
                             : 'bg-muted'
-                        }`}
+                          }`}
                       >
                         <p className="text-sm">{message.text}</p>
-                        <p className={`text-xs mt-1 ${
-                          message.senderId === currentUser.uid 
-                            ? 'text-primary-foreground/70' 
+                        <p className={`text-xs mt-1 ${message.senderId === currentUser.uid
+                            ? 'text-primary-foreground/70'
                             : 'text-muted-foreground'
-                        }`}>
+                          }`}>
                           {formatTime(message.createdAt)}
                         </p>
                       </div>
@@ -334,9 +367,9 @@ const Messages = () => {
                 )}
                 <div ref={messagesEndRef} />
               </div>
-              
+
               <Separator />
-              
+
               {/* Quick Templates */}
               {farmersList[selectedFarmer] && (
                 <>
@@ -356,7 +389,7 @@ const Messages = () => {
                       ))}
                     </div>
                   </div>
-                  
+
                   {/* Message Input */}
                   <div className="p-4">
                     <div className="flex gap-2">
@@ -368,7 +401,7 @@ const Messages = () => {
                         onKeyDown={handleKeyPress}
                         rows={1}
                       />
-                      <Button 
+                      <Button
                         onClick={handleSendMessage}
                         className="bg-gradient-primary hover:shadow-glow flex-shrink-0"
                         disabled={!newMessage.trim() || !farmersList[selectedFarmer]}
@@ -397,7 +430,7 @@ const Messages = () => {
                 Select a farmer to start a conversation
               </p>
             </div>
-            
+
             <div className="p-4 max-h-[400px] overflow-y-auto">
               <div className="space-y-3">
                 {farmersList.map((farmer, index) => (
@@ -410,7 +443,7 @@ const Messages = () => {
                       <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center text-lg">
                         👨‍🌾
                       </div>
-                      
+
                       <div className="flex-1">
                         <div className="font-medium">{farmer.name}</div>
                         <p className="text-sm text-muted-foreground">{farmer.role}</p>
@@ -420,7 +453,7 @@ const Messages = () => {
                 ))}
               </div>
             </div>
-            
+
             <div className="p-4 border-t">
               <Button
                 variant="outline"

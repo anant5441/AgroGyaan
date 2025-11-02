@@ -3,18 +3,18 @@ import { getUserById, updateUser, deleteUser } from '../controllers/userControll
 import { 
     getUnconnectedUsers, 
     getRoomId, 
+    getUserRoom,
     healthCheck ,
-    addRoomToUsers ,
-    getUserRooms 
+    addRoomToUsers 
 } from '../controllers/connectionController.js';
 // import { protect } from '../middleware/authMiddleware.js';
 
 const router=express.Router();
 
 // New connection-based routes
+router.get('/my-rooms',getUserRoom)
 router.get('/unconnected-users', getUnconnectedUsers);
 router.get('/get-room-id', getRoomId);
-router.get('/my-rooms', getUserRooms); 
 router.get('/health', healthCheck);
 router.post('/add-room', addRoomToUsers); 
 

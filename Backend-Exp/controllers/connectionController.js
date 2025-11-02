@@ -202,7 +202,7 @@ export const getRoomId = async (req, res, next) => {
  * Returns all rooms for a user with details of the other person in each room
  * Query Param: user_id - The ID of the user to get rooms for
  */
-export const getUserRooms = async (req, res, next) => {
+export const getUserRoom = async (req, res, next) => {
     try {
         const { user_id } = req.query;
 

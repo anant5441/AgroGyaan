@@ -11,10 +11,11 @@ The Backend-Exp service provides the essential marketplace infrastructure for:
 - **Marketplace Operations** - Core marketplace functionality and data management
 
 
-
 ## 🔌 API Documentation
 
 ### Base URL: `http://localhost:5000`
+
+### Deployed (Production) URL: `https://backend-exp-yul4.onrender.com`
 
 ### Authentication Endpoints
 
@@ -72,6 +73,8 @@ Content-Type: application/json
 POST /api/auth/login
 Content-Type: application/json
 ```
+
+**Deployed Endpoint:** `https://backend-exp-yul4.onrender.com/api/auth/login`
 
 **Request Body:**
 ```json
@@ -182,6 +185,152 @@ Authorization: Bearer <token>
   }
 }
 ```
+
+### Connection & Chat Endpoints
+
+#### 1. Get Unconnected Users
+```http
+GET /api/users/unconnected-users?user_id=<user_id>
+```
+
+**Query Parameters:**
+- `user_id` (required) - The ID of the user to find unconnected users for
+
+**Response:**
+```json
+{
+  "success": true,
+  "unconnected_ids": [
+    "64a7b8c9d1e2f3g4h5i6j7k9",
+    "64a7b8c9d1e2f3g4h5i6j7k0",
+    "64a7b8c9d1e2f3g4h5i6j7k1"
+  ],
+  "metadata": {
+    "total_users": 10,
+    "connected_users": 3,
+    "unconnected_users": 6
+  }
+}
+```
+
+**Error Responses:**
+```json
+{
+  "success": false,
+  "code": "MISSING_USER_ID",
+  "msg": "User ID is required"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "INVALID_USER_ID",
+  "msg": "Invalid user ID format"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "USER_NOT_FOUND",
+  "msg": "User not found"
+}
+```
+
+**Deployed Endpoint:** `https://backend-exp-yul4.onrender.com/api/users/unconnected-users?user_id=<user_id>`
+
+#### 2. Get Room ID
+```http
+GET /api/users/get-room-id?id1=<user_id1>&id2=<user_id2>
+```
+
+**Query Parameters:**
+- `id1` (required) - First user ID
+- `id2` (required) - Second user ID
+
+**Response:**
+```json
+{
+  "success": true,
+  "room_id": "64a7b8c9d1e2f3g4h5i6j7k8_64a7b8c9d1e2f3g4h5i6j7k9",
+  "other_user": {
+    "id": "64a7b8c9d1e2f3g4h5i6j7k9",
+    "name": "Jane Smith",
+    "role": "buyer"
+  },
+  "message": "Room created and stored in both users"
+}
+```
+
+**Note:** This endpoint automatically creates a deterministic room ID by sorting the two user IDs lexicographically and joining them with an underscore. It also stores the room ID in both users' `rooms_id` arrays if not already present.
+
+**Error Responses:**
+```json
+{
+  "success": false,
+  "code": "MISSING_IDS",
+  "msg": "Both id1 and id2 are required"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "SAME_USER_IDS",
+  "msg": "Cannot create room with same user"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "USER_NOT_FOUND",
+  "msg": "One or both users not found"
+}
+```
+
+**Deployed Endpoint:** `https://backend-exp-yul4.onrender.com/api/users/get-room-id?id1=<user_id1>&id2=<user_id2>`
+
+#### 3. Add Room to Users (Manual)
+```http
+POST /api/users/add-room
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "user_id1": "64a7b8c9d1e2f3g4h5i6j7k8",
+  "user_id2": "64a7b8c9d1e2f3g4h5i6j7k9"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "room_id": "64a7b8c9d1e2f3g4h5i6j7k8_64a7b8c9d1e2f3g4h5i6j7k9",
+  "other_user": {
+    "id": "64a7b8c9d1e2f3g4h5i6j7k9",
+    "name": "Jane Smith",
+    "role": "buyer"
+  },
+  "message": "Room successfully added to both users"
+}
+```
+
+**Error Responses:**
+```json
+{
+  "success": false,
+  "code": "MISSING_USER_IDS",
+  "msg": "Both user_id1 and user_id2 are required"
+}
+```
+
+**Deployed Endpoint:** `https://backend-exp-yul4.onrender.com/api/users/add-room`
+
 
 ### Crop Listing Endpoints
 

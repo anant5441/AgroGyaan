@@ -3,96 +3,101 @@ import mongoose from 'mongoose';
 
 /**
  * GET /api/users/unconnected-users
- * Returns a list of user IDs that are not connected to the given user
+ * Returns a list of users that are not connected to the given user
  */
 export const getUnconnectedUsers = async (req, res, next) => {
     try {
         const { user_id } = req.query;
 
-    // Validate input
-    if (!user_id) {
-        const error = new Error('User ID is required');
-        error.statusCode = 400;
-        error.code = 'MISSING_USER_ID';
-        throw error;
-    }
+        // Validate input
+        if (!user_id) {
+            const error = new Error('User ID is required');
+            error.statusCode = 400;
+            error.code = 'MISSING_USER_ID';
+            throw error;
+        }
 
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(user_id)) {
-        const error = new Error('Invalid user ID format');
-        error.statusCode = 400;
-        error.code = 'INVALID_USER_ID';
-        throw error;
-    }
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            const error = new Error('Invalid user ID format');
+            error.statusCode = 400;
+            error.code = 'INVALID_USER_ID';
+            throw error;
+        }
 
-    // Fetch all users from the database
-    const allUsers = await User.find({}).select('_id rooms_id');
-    
-    if (!allUsers || allUsers.length === 0) {
-        const error = new Error('No users found in database');
-        error.statusCode = 404;
-        error.code = 'NO_USERS_FOUND';
-        throw error;
-    }
+        // Fetch all users from the database with name and role
+        const allUsers = await User.find({}).select('_id name role rooms_id');
+        
+        if (!allUsers || allUsers.length === 0) {
+            const error = new Error('No users found in database');
+            error.statusCode = 404;
+            error.code = 'NO_USERS_FOUND';
+            throw error;
+        }
 
-    // Find the current user
-    const currentUser = allUsers.find(user => user._id.toString() === user_id);
-    
-    if (!currentUser) {
-        const error = new Error('User not found');
-        error.statusCode = 404;
-        error.code = 'USER_NOT_FOUND';
-        throw error;
-    }
+        // Find the current user
+        const currentUser = allUsers.find(user => user._id.toString() === user_id);
+        
+        if (!currentUser) {
+            const error = new Error('User not found');
+            error.statusCode = 404;
+            error.code = 'USER_NOT_FOUND';
+            throw error;
+        }
 
-    // Extract connected user IDs from rooms_id
-    const connectedIds = new Set();
-    
-    if (currentUser.rooms_id && currentUser.rooms_id.length > 0) {
-        currentUser.rooms_id.forEach(roomId => {
-            try {
-            // Split room_id by underscore
-            const parts = roomId.split('_');
-            
-            // Room should contain exactly 2 user IDs
-            if (parts.length === 2) {
-                const [id1, id2] = parts;
-                
-                // If current user matches either part, add the other to connectedIds
-                if (user_id === id1) {
-                connectedIds.add(id2);
-                } else if (user_id === id2) {
-                connectedIds.add(id1);
+        // Extract connected user IDs from rooms_id
+        const connectedIds = new Set();
+        
+        if (currentUser.rooms_id && currentUser.rooms_id.length > 0) {
+            currentUser.rooms_id.forEach(roomId => {
+                try {
+                    // Split room_id by underscore
+                    const parts = roomId.split('_');
+                    
+                    // Room should contain exactly 2 user IDs
+                    if (parts.length === 2) {
+                        const [id1, id2] = parts;
+                        
+                        // If current user matches either part, add the other to connectedIds
+                        if (user_id === id1) {
+                            connectedIds.add(id2);
+                        } else if (user_id === id2) {
+                            connectedIds.add(id1);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Invalid room format: ${roomId}`, error);
                 }
-            }
-            } catch (error) {
-            console.warn(`Invalid room format: ${roomId}`, error);
+            });
+        }
+
+        // Filter unconnected users (not in connectedIds and not the current user)
+        const unconnectedUsers = allUsers
+            .filter(user => {
+                const userId = user._id.toString();
+                return userId !== user_id && !connectedIds.has(userId);
+            })
+            .map(user => ({
+                id: user._id,
+                name: user.name,
+                role: user.role
+            }));
+
+        res.json({
+            success: true,
+            unconnected_users: unconnectedUsers,
+            metadata: {
+                total_users: allUsers.length,
+                connected_users: connectedIds.size,
+                unconnected_users: unconnectedUsers.length
             }
         });
-    }
-
-    // Get all user IDs from database
-    const allUserIds = allUsers.map(user => user._id.toString());
-    
-    // Find unconnected user IDs (not in connectedIds and not the current user)
-    const unconnectedIds = allUserIds.filter(userId => 
-        userId !== user_id && !connectedIds.has(userId)
-    );
-
-    res.json({
-        success: true,
-        unconnected_ids: unconnectedIds,
-        metadata: {
-            total_users: allUserIds.length,
-            connected_users: connectedIds.size,
-            unconnected_users: unconnectedIds.length
-        }
-    });
 
     } catch (error) {
         next(error);
     }
 };
+
 
 /**
  * GET /api/users/get-room-id

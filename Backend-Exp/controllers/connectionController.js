@@ -196,6 +196,116 @@ export const getRoomId = async (req, res, next) => {
     }
 };
 
+
+/**
+ * GET /api/users/my-rooms
+ * Returns all rooms for a user with details of the other person in each room
+ * Query Param: user_id - The ID of the user to get rooms for
+ */
+export const getUserRooms = async (req, res, next) => {
+    try {
+        const { user_id } = req.query;
+
+        // Validate input
+        if (!user_id) {
+            const error = new Error('User ID is required');
+            error.statusCode = 400;
+            error.code = 'MISSING_USER_ID';
+            throw error;
+        }
+
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+            const error = new Error('Invalid user ID format');
+            error.statusCode = 400;
+            error.code = 'INVALID_USER_ID';
+            throw error;
+        }
+
+        // Find the current user with their rooms
+        const currentUser = await User.findById(user_id).select('rooms_id');
+        
+        if (!currentUser) {
+            const error = new Error('User not found');
+            error.statusCode = 404;
+            error.code = 'USER_NOT_FOUND';
+            throw error;
+        }
+
+        // If user has no rooms, return empty array
+        if (!currentUser.rooms_id || currentUser.rooms_id.length === 0) {
+            return res.json({
+                success: true,
+                rooms: [],
+                message: 'No rooms found for this user'
+            });
+        }
+
+        // Array to store room details
+        const roomsWithDetails = [];
+
+        // Process each room to get the other user's details
+        for (const roomId of currentUser.rooms_id) {
+            try {
+                // Split room_id by underscore to get both user IDs
+                const parts = roomId.split('_');
+                
+                // Room should contain exactly 2 user IDs
+                if (parts.length === 2) {
+                    const [user1Id, user2Id] = parts;
+                    
+                    // Determine which user is the other person
+                    let otherUserId;
+                    if (user_id === user1Id) {
+                        otherUserId = user2Id;
+                    } else if (user_id === user2Id) {
+                        otherUserId = user1Id;
+                    } else {
+                        // Skip if current user is not in this room (shouldn't happen normally)
+                        continue;
+                    }
+
+                    // Validate the other user's ID
+                    if (!mongoose.Types.ObjectId.isValid(otherUserId)) {
+                        console.warn(`Invalid user ID in room: ${otherUserId}`);
+                        continue;
+                    }
+
+                    // Fetch the other user's details
+                    const otherUser = await User.findById(otherUserId).select('name role');
+                    
+                    if (otherUser) {
+                        roomsWithDetails.push({
+                            id: roomId, // Room ID as the identifier
+                            name: otherUser.name,
+                            role: otherUser.role,
+                            other_user_id: otherUser._id // Also include the actual user ID if needed
+                        });
+                    } else {
+                        console.warn(`Other user not found for ID: ${otherUserId}`);
+                    }
+                }
+            } catch (error) {
+                console.error(`Error processing room ${roomId}:`, error);
+                // Continue with next room even if one fails
+                continue;
+            }
+        }
+
+        res.json({
+            success: true,
+            rooms: roomsWithDetails,
+            metadata: {
+                total_rooms: currentUser.rooms_id.length,
+                rooms_with_details: roomsWithDetails.length
+            }
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
 /**
  * GET /api/users/health
  * Health check endpoint for users routes

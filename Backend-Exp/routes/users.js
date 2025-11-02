@@ -4,7 +4,8 @@ import {
     getUnconnectedUsers, 
     getRoomId, 
     healthCheck ,
-    addRoomToUsers 
+    addRoomToUsers ,
+    getUserRooms 
 } from '../controllers/connectionController.js';
 // import { protect } from '../middleware/authMiddleware.js';
 
@@ -13,6 +14,7 @@ const router=express.Router();
 // New connection-based routes
 router.get('/unconnected-users', getUnconnectedUsers);
 router.get('/get-room-id', getRoomId);
+router.get('/my-rooms', getUserRooms); 
 router.get('/health', healthCheck);
 router.post('/add-room', addRoomToUsers); 
 

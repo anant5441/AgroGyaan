@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { MessageCircle, X, Send, Bot, User, Trash2, Image, XCircle, Volume2, VolumeX } from "lucide-react";
 // const BASE_URL = "http://localhost:8000"; // Update with your backend URL
-const BASE_URL = "https://agrogyaan-b-ai.onrender.com/"
+const BASE_URL = "https://agrogyaan-b-ai.onrender.com"
+
 export function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");

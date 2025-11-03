@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageCircle, X, Send, Bot, User, Trash2, Image, XCircle } from "lucide-react";
-const BASE_URL = "https://agrogyaan-b-ai.onrender.com"
+import { MessageCircle, X, Send, Bot, User, Trash2, Image, XCircle, Volume2, VolumeX } from "lucide-react";
+const BASE_URL = "http://localhost:8000"; // Update with your backend URL
 
 export function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,15 +12,20 @@ export function AIAssistant() {
       content: "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, or any other farming queries. You can also upload images of crops for analysis.",
       timestamp: new Date(),
       isStreaming: false,
+      audioAvailable: false,
+      audioData: null,
+      audioLanguage: "en"
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [currentlyPlayingAudio, setCurrentlyPlayingAudio] = useState(null);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const audioRef = useRef(null);
 
   // Auto scroll when messages update and focus input when opened
   useEffect(() => {
@@ -32,6 +37,16 @@ export function AIAssistant() {
       inputRef.current.focus();
     }
   }, [messages, isOpen]);
+
+  // Clean up audio when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const handleImageSelect = (event) => {
     const file = event.target.files[0];
@@ -67,6 +82,119 @@ export function AIAssistant() {
     }
   };
 
+  const playAudio = async (audioData, messageId) => {
+    try {
+      // Stop currently playing audio
+      if (currentlyPlayingAudio) {
+        stopAudio();
+      }
+
+      // Decode base64 audio data
+      const audioBlob = base64ToBlob(audioData, 'audio/mp3');
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // Create audio element
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      setCurrentlyPlayingAudio(messageId);
+
+      audio.onended = () => {
+        setCurrentlyPlayingAudio(null);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        console.error('Error playing audio');
+        setCurrentlyPlayingAudio(null);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setCurrentlyPlayingAudio(null);
+    }
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    setCurrentlyPlayingAudio(null);
+  };
+
+  const base64ToBlob = (base64, mimeType) => {
+    const byteCharacters = atob(base64);
+    const byteArrays = [];
+
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+
+    return new Blob(byteArrays, { type: mimeType });
+  };
+
+  const generateAudioForMessage = async (messageId, messageText, language = "en") => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch(`${BASE_URL}/api/generate-audio`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          text: messageText,
+          language: language
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.status === "success" && data.audio_data) {
+        // Update the message with audio data
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === messageId
+              ? { 
+                  ...msg, 
+                  audioAvailable: true, 
+                  audioData: data.audio_data,
+                  audioLanguage: data.audio_language || language
+                }
+              : msg
+          )
+        );
+        
+        // Auto-play the audio
+        await playAudio(data.audio_data, messageId);
+      } else {
+        alert(data.message || "Failed to generate audio");
+      }
+      
+    } catch (error) {
+      console.error("Error generating audio:", error);
+      alert("Failed to generate audio. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if ((!message.trim() && !selectedImage) || isLoading) return;
 
@@ -77,6 +205,8 @@ export function AIAssistant() {
       image: imagePreview,
       timestamp: new Date(),
       isStreaming: false,
+      audioAvailable: false,
+      audioData: null
     };
 
     setMessages((prev) => [...prev, newMessage]);
@@ -90,7 +220,7 @@ export function AIAssistant() {
 
       if (selectedImage) {
         // Use image endpoint with FormData
-        endpoint = BASE_URL+"/api/chat-with-image";
+        endpoint = BASE_URL + "/api/chat-with-image";
         const formData = new FormData();
         
         if (message.trim()) {
@@ -102,7 +232,7 @@ export function AIAssistant() {
         // Don't set Content-Type header for FormData - browser will set it with boundary
       } else {
         // Use text-only endpoint with JSON
-        endpoint = BASE_URL+"/api/chat";
+        endpoint = BASE_URL + "/api/chat";
         body = JSON.stringify({ query: message });
         headers = {
           "Content-Type": "application/json",
@@ -129,11 +259,16 @@ export function AIAssistant() {
         content: "",
         timestamp: new Date(),
         isStreaming: true,
+        audioAvailable: data.audio_available || false,
+        audioData: data.audio_data || null,
+        audioLanguage: data.audio_language || "en"
       };
 
       setMessages((prev) => [...prev, botMessage]);
       
       const responseText = data.answer || data.error || "No response received";
+      
+      // Stream the text response
       for (let i = 0; i <= responseText.length; i++) {
         await new Promise(resolve => setTimeout(resolve, 15));
         setMessages(prev =>
@@ -145,11 +280,17 @@ export function AIAssistant() {
         );
       }
       
-      // Mark streaming as complete
+      // Mark streaming as complete and update audio status
       setMessages(prev =>
         prev.map(msg =>
           msg.id === botMessageId
-            ? { ...msg, isStreaming: false }
+            ? { 
+                ...msg, 
+                isStreaming: false,
+                audioAvailable: data.audio_available || false,
+                audioData: data.audio_data || null,
+                audioLanguage: data.audio_language || "en"
+              }
             : msg
         )
       );
@@ -163,6 +304,8 @@ export function AIAssistant() {
         content: "Sorry, I'm having trouble connecting to the AI service. Please try again later.",
         timestamp: new Date(),
         isStreaming: false,
+        audioAvailable: false,
+        audioData: null
       };
       
       setMessages((prev) => [...prev, errorMessage]);
@@ -180,6 +323,9 @@ export function AIAssistant() {
   };
 
   const clearConversation = () => {
+    // Stop any playing audio when clearing conversation
+    stopAudio();
+    
     setMessages([
       {
         id: "1",
@@ -187,6 +333,9 @@ export function AIAssistant() {
         content: "Hello! I'm your AI farming assistant. How can I help you today? You can ask me about crop diseases, weather conditions, market prices, or any other farming queries. You can also upload images of crops for analysis.",
         timestamp: new Date(),
         isStreaming: false,
+        audioAvailable: false,
+        audioData: null,
+        audioLanguage: "en"
       },
     ]);
     setIsLoading(false);
@@ -194,6 +343,8 @@ export function AIAssistant() {
   };
 
   const handleClose = () => {
+    // Stop any playing audio when closing
+    stopAudio();
     setIsOpen(false);
     clearConversation();
   };
@@ -207,11 +358,47 @@ export function AIAssistant() {
       if (messages.length > 1) {
         clearConversation();
       }
+    } else {
+      // Stop audio when closing
+      stopAudio();
     }
   };
 
-  // Enhanced Message component with better text wrapping and cursor
+  // Enhanced Message component with audio controls
   const Message = ({ msg }) => {
+    const isPlaying = currentlyPlayingAudio === msg.id;
+    
+    const handleAudioPlay = () => {
+      if (isPlaying) {
+        stopAudio();
+      } else {
+        if (msg.audioAvailable && msg.audioData) {
+          playAudio(msg.audioData, msg.id);
+        } else if (msg.type === "bot") {
+          // Generate audio on demand for bot messages without audio
+          generateAudioForMessage(msg.id, msg.content, "en");
+        }
+      }
+    };
+
+    const getLanguageName = (code) => {
+      const languages = {
+        'en': 'English',
+        'hi': 'Hindi',
+        'es': 'Spanish',
+        'fr': 'French',
+        'bn': 'Bengali',
+        'ta': 'Tamil',
+        'te': 'Telugu',
+        'mr': 'Marathi',
+        'gu': 'Gujarati',
+        'kn': 'Kannada',
+        'ml': 'Malayalam',
+        'pa': 'Punjabi'
+      };
+      return languages[code] || code;
+    };
+
     return (
       <div
         className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}
@@ -254,6 +441,40 @@ export function AIAssistant() {
                   <span className="inline-block w-2 h-4 bg-green-500 ml-0.5 animate-pulse"></span>
                 )}
               </div>
+
+              {/* Audio controls for bot messages */}
+              {msg.type === "bot" && !msg.isStreaming && (
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-100">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handleAudioPlay}
+                      disabled={isLoading}
+                      className={`p-1 rounded-full transition-colors ${
+                        isPlaying 
+                          ? 'bg-red-100 text-red-600 hover:bg-red-200' 
+                          : 'bg-green-100 text-green-600 hover:bg-green-200'
+                      } disabled:bg-gray-100 disabled:text-gray-400`}
+                      title={isPlaying ? "Stop audio" : "Play audio"}
+                      aria-label={isPlaying ? "Stop audio" : "Play audio"}
+                    >
+                      {isPlaying ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+                    </button>
+                    <span className="text-xs text-gray-500">
+                      {msg.audioAvailable 
+                        ? `Audio available`
+                        : "Click to generate audio"
+                      }
+                    </span>
+                  </div>
+                  {isPlaying && (
+                    <div className="flex space-x-1">
+                      <span className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></span>
+                      <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></span>
+                      <span className="w-1 h-1 bg-green-600 rounded-full animate-pulse"></span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <p className={`text-xs mt-1 ${msg.type === "user" ? "text-green-100" : "text-gray-500"}`}>
@@ -403,6 +624,9 @@ export function AIAssistant() {
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
                 {selectedImage ? "Image ready for analysis • Press Enter to send" : "Press Enter to send • Available 24/7"}
+              </p>
+              <p className="text-xs text-green-600 mt-1 text-center">
+                💡 Tip: Ask for "audio" or "speech" to hear responses in multiple languages
               </p>
             </div>
           </div>

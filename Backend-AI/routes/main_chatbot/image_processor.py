@@ -1,8 +1,11 @@
 import os
 import base64
 import logging
+import re
+import time
 from typing import Optional, Dict, Any
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 # Import reusable functions from your existing code
@@ -26,24 +29,68 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+class CacheManager:
+    """Simple cache manager for audio and image responses"""
+    
+    def __init__(self, max_size=100, ttl=3600):  # 1 hour TTL by default
+        self.cache = {}
+        self.max_size = max_size
+        self.ttl = ttl
+    
+    def _generate_key(self, text: str, language: str = "en") -> str:
+        """Generate a cache key from text and language"""
+        return f"{language}:{hash(text)}"
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Get item from cache if not expired"""
+        if key in self.cache:
+            item = self.cache[key]
+            if time.time() - item['timestamp'] < self.ttl:
+                logger.debug(f"Cache hit for key: {key}")
+                return item['data']
+            else:
+                # Remove expired item
+                del self.cache[key]
+                logger.debug(f"Cache expired for key: {key}")
+        return None
+    
+    def set(self, key: str, data: Any) -> None:
+        """Set item in cache with timestamp"""
+        # Remove oldest items if cache is full
+        if len(self.cache) >= self.max_size:
+            oldest_key = min(self.cache.keys(), key=lambda k: self.cache[k]['timestamp'])
+            del self.cache[oldest_key]
+            logger.debug(f"Cache evicted key: {oldest_key}")
+        
+        self.cache[key] = {
+            'data': data,
+            'timestamp': time.time()
+        }
+        logger.debug(f"Cache set for key: {key}")
+    
+    def clear(self) -> None:
+        """Clear all cache"""
+        self.cache.clear()
+        logger.info("Cache cleared")
+
 class ImageProcessor:
     def __init__(self):
-        self.gemini_model = None
+        self.client = None
         self.vector_store = None
         self.initialized = False
+        self.cache = CacheManager(max_size=200, ttl=7200)  # 2 hours TTL for audio
         self._initialize_components()
     
     def _initialize_components(self):
         """Initialize Gemini and reuse existing Pinecone components"""
         try:
-            # Initialize Gemini
+            # Initialize Gemini client with new google-genai library
             api_key = os.getenv("GOOGLE_API_KEY")
             if not api_key:
                 raise ValueError("GOOGLE_API_KEY not found in environment variables")
             
-            genai.configure(api_key=api_key)
-            self.gemini_model = genai.GenerativeModel("gemini-2.5-pro")
-            logger.info("Gemini model initialized successfully")
+            self.client = genai.Client(api_key=api_key)
+            logger.info("Gemini client initialized successfully")
             
             # Reuse existing Pinecone vector store
             self.vector_store = get_pinecone_vector_store()
@@ -58,6 +105,55 @@ class ImageProcessor:
         except Exception as e:
             logger.error(f"Failed to initialize image processor: {str(e)}")
             raise
+    
+    def _should_include_audio(self, query: str) -> bool:
+        """
+        Check if user explicitly requests audio/speech in their query
+        """
+        audio_keywords = [
+            # English
+            'audio', 'speech', 'voice', 'listen', 'hear', 'read aloud', 'speak',
+            'tell me', 'say it', 'verbal', 'vocal',
+            # Hindi
+            'आडियो', 'स्पीच', 'वॉइस', 'सुनाओ', 'बोलो', 'बताओ', 'सुनाईए',
+            'बोलिए', 'आवाज', 'ध्वनि',
+            # Spanish
+            'audio', 'voz', 'escuchar', 'oír', 'habla', 'dilo',
+            # French
+            'audio', 'voix', 'écouter', 'entendre', 'parle', 'dis'
+        ]
+        
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in audio_keywords)
+    
+    def _extract_language_from_audio_request(self, query: str) -> str:
+        """
+        Extract language preference from audio request
+        """
+        query_lower = query.lower()
+        
+        # Language mapping with various terms
+        language_mapping = {
+            'hi': ['hindi', 'हिंदी', 'हिन्दी', 'hindi me', 'हिंदी में'],
+            'en': ['english', 'अंग्रेजी', 'english me', 'अंग्रेजी में', 'inglish'],
+            'es': ['spanish', 'español', 'espanol', 'spanish'],
+            'fr': ['french', 'français', 'francais', 'french me'],
+            'bn': ['bengali', 'bangla', 'বাংলা', 'bengali me'],
+            'ta': ['tamil', 'தமிழ்', 'tamil me'],
+            'te': ['telugu', 'తెలుగు', 'telugu me'],
+            'mr': ['marathi', 'मराठी', 'marathi me'],
+            'gu': ['gujarati', 'ગુજરાતી', 'gujarati me'],
+            'kn': ['kannada', 'ಕನ್ನಡ', 'kannada me'],
+            'ml': ['malayalam', 'മലയാളം', 'malayalam me'],
+            'pa': ['punjabi', 'ਪੰਜਾਬੀ', 'punjabi me']
+        }
+        
+        for lang_code, keywords in language_mapping.items():
+            if any(keyword in query_lower for keyword in keywords):
+                return lang_code
+        
+        # Default to English if no specific language requested
+        return "en"
     
     def _get_contextual_data(self, query: str):
         """Get location, weather, and seasonal context using existing functions"""
@@ -177,49 +273,133 @@ class ImageProcessor:
         Please provide a clear, practical analysis that combines image observations with contextual farming knowledge:
         """
     
+    async def generate_audio_response(self, text: str, language: str = "en") -> Optional[bytes]:
+        """
+        Generate audio response using gTTS with caching
+        """
+        try:
+            # Generate cache key
+            cache_key = self.cache._generate_key(text, language)
+            
+            # Check cache first
+            cached_audio = self.cache.get(cache_key)
+            if cached_audio:
+                logger.info(f"Using cached audio for {len(text)} characters in {language}")
+                return cached_audio
+            
+            # Use gTTS directly since it's working
+            from gtts import gTTS
+            import io
+            
+            # Limit text length for TTS (gTTS has limits)
+            if len(text) > 1000:
+                text = text[:1000] + "..."
+            
+            # Map language codes to gTTS supported codes
+            lang_map = {
+                'hi': 'hi',  # Hindi
+                'en': 'en',  # English
+                'es': 'es',  # Spanish
+                'fr': 'fr',  # French
+                'bn': 'bn',  # Bengali
+                'ta': 'ta',  # Tamil
+                'te': 'te',  # Telugu
+                'mr': 'mr',  # Marathi
+                'gu': 'gu',  # Gujarati
+                'kn': 'kn',  # Kannada
+                'ml': 'ml',  # Malayalam
+                'pa': 'pa'   # Punjabi
+            }
+            
+            tts_lang = lang_map.get(language, 'en')
+            
+            tts = gTTS(text=text, lang=tts_lang, slow=False)
+            audio_buffer = io.BytesIO()
+            tts.write_to_fp(audio_buffer)
+            audio_data = audio_buffer.getvalue()
+            
+            # Cache the audio data
+            self.cache.set(cache_key, audio_data)
+            
+            logger.info(f"gTTS generated audio: {len(audio_data)} bytes for language: {language}")
+            return audio_data
+            
+        except ImportError:
+            logger.error("gTTS not installed. Please run: pip install gtts")
+            return None
+        except Exception as e:
+            logger.error(f"Error generating audio with gTTS: {str(e)}")
+            return None
+    
+    async def process_image_with_gemini(self, query: str, image_b64: str, image_type: str) -> str:
+        """Process image using the new Gemini client"""
+        try:
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=query),
+                        types.Part.from_bytes(
+                            data=base64.b64decode(image_b64),
+                            mime_type=image_type
+                        ),
+                    ],
+                ),
+            ]
+            
+            response = self.client.models.generate_content(
+                model="gemini-2.5-flash",  # Use stable model for image processing
+                contents=contents,
+            )
+            
+            return response.text.strip()
+            
+        except Exception as e:
+            logger.error(f"Error processing image with Gemini: {str(e)}")
+            raise
+    
     async def process_image_query(self, query: str, image_b64: str, image_type: str) -> Dict[str, Any]:
         """
         Process image queries using Gemini with comprehensive Pinecone document context
-        
-        Args:
-            query: User's text query
-            image_b64: Base64 encoded image data
-            image_type: MIME type of the image
-        
-        Returns:
-            dict: Response with answer and metadata
         """
         if not self.initialized:
             raise RuntimeError("Image processor not initialized")
         
         try:
-            # Step 1: Get contextual data (location, weather, season)
+            # Step 1: Check if user wants audio
+            include_audio = self._should_include_audio(query)
+            audio_language = self._extract_language_from_audio_request(query)
+            
+            if include_audio:
+                logger.info(f"Audio requested in language: {audio_language}")
+            
+            # Step 2: Get contextual data (location, weather, season)
             contextual_data = self._get_contextual_data(query)
             
-            # Step 2: Retrieve relevant documents from Pinecone
+            # Step 3: Retrieve relevant documents from Pinecone
             relevant_docs = retrieve_relevant_documents(query, threshold=0.5)
             context_text = self._extract_context_from_documents(relevant_docs)
             
-            # Step 3: Build comprehensive prompt
+            # Step 4: Build comprehensive prompt
             prompt = self._build_context_prompt(query, context_text, contextual_data)
             
-            # Step 4: Generate response using Gemini with image
-            response = self.gemini_model.generate_content([
-                prompt,
-                {
-                    "mime_type": image_type,
-                    "data": image_b64
-                }
-            ])
+            # Step 5: Generate response using Gemini with image
+            answer = await self.process_image_with_gemini(prompt, image_b64, image_type)
             
-            answer = response.text.strip()
+            # Step 6: Generate audio ONLY if user explicitly requested it
+            audio_data = None
+            if include_audio:
+                audio_data = await self.generate_audio_response(answer, audio_language)
             
-            # Step 5: Format comprehensive response
+            # Step 7: Format comprehensive response
             return self._format_response(
                 query=query,
                 answer=answer,
                 relevant_docs=relevant_docs,
-                contextual_data=contextual_data
+                contextual_data=contextual_data,
+                audio_data=audio_data,
+                include_audio=include_audio,
+                audio_language=audio_language
             )
             
         except Exception as e:
@@ -242,20 +422,28 @@ class ImageProcessor:
         
         return "\n\n".join(context_parts)
     
-    def _format_response(self, query: str, answer: str, relevant_docs: list, contextual_data: Dict) -> Dict[str, Any]:
+    def _format_response(self, query: str, answer: str, relevant_docs: list, contextual_data: Dict, audio_data: Optional[bytes] = None, include_audio: bool = False, audio_language: str = "en") -> Dict[str, Any]:
         """Format comprehensive response with all metadata"""
         response = {
             "query": query,
             "answer": answer,
-            "llm_source": "Gemini-2.5-Pro (Image Analysis)",
+            "llm_source": "Gemini-2.5-Flash (Image Analysis)",
             "sources": [
                 f"Document: {doc.metadata.get('source', 'Unknown')}"
                 for doc in relevant_docs[:2]
             ] if relevant_docs else ["General agricultural knowledge"],
             "analysis_type": "Image + Text Analysis",
             "documents_used": len(relevant_docs),
-            "context_used": bool(relevant_docs)
+            "context_used": bool(relevant_docs),
+            "audio_available": include_audio and audio_data is not None,
+            "audio_requested": include_audio
         }
+        
+        # Add audio data if available
+        if audio_data and include_audio:
+            response["audio_data"] = base64.b64encode(audio_data).decode('utf-8')
+            response["audio_format"] = "audio/mp3"
+            response["audio_language"] = audio_language
         
         # Add location data if available
         if contextual_data["location_data"] and "error" not in contextual_data["location_data"]:
@@ -291,7 +479,9 @@ class ImageProcessor:
             "analysis_type": "Error",
             "documents_used": 0,
             "context_used": False,
-            "error": error
+            "error": error,
+            "audio_available": False,
+            "audio_requested": False
         }
 
 # Global instance
@@ -311,10 +501,113 @@ async def process_image_only_query(image_b64: str, image_type: str) -> Dict[str,
     general_query = "Analyze this farming image and provide comprehensive agricultural insights including crop health, potential issues, and practical recommendations"
     return await image_processor.process_image_query(general_query, image_b64, image_type)
 
+async def generate_audio_from_text(text: str, language: str = "en") -> Optional[Dict[str, Any]]:
+    """
+    Generate audio from text using gTTS with caching
+    """
+    try:
+        audio_data = await image_processor.generate_audio_response(text, language)
+        
+        if audio_data:
+            return {
+                "audio_data": base64.b64encode(audio_data).decode('utf-8'),
+                "audio_format": "audio/mp3",
+                "audio_language": language,
+                "text_length": len(text),
+                "status": "success"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Failed to generate audio. Please ensure gTTS is installed."
+            }
+    except Exception as e:
+        logger.error(f"Error generating audio from text: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def clear_audio_cache() -> Dict[str, Any]:
+    """Clear the audio cache"""
+    try:
+        image_processor.cache.clear()
+        return {
+            "status": "success",
+            "message": "Audio cache cleared successfully",
+            "cache_size": 0
+        }
+    except Exception as e:
+        logger.error(f"Error clearing audio cache: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def get_cache_stats() -> Dict[str, Any]:
+    """Get cache statistics"""
+    try:
+        cache_size = len(image_processor.cache.cache)
+        return {
+            "status": "success",
+            "cache_size": cache_size,
+            "max_size": image_processor.cache.max_size,
+            "ttl": image_processor.cache.ttl
+        }
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def get_supported_languages() -> Dict[str, str]:
+    """Get supported languages for TTS"""
+    return {
+        "en": "English",
+        "hi": "Hindi",
+        "es": "Spanish", 
+        "fr": "French",
+        "bn": "Bengali",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "mr": "Marathi",
+        "gu": "Gujarati",
+        "kn": "Kannada",
+        "ml": "Malayalam",
+        "pa": "Punjabi"
+    }
+
+def get_audio_request_keywords() -> Dict[str, list]:
+    """Get keywords that trigger audio generation"""
+    return {
+        "english": ["audio", "speech", "voice", "listen", "hear", "read aloud", "speak", "tell me", "say it"],
+        "hindi": ["आडियो", "स्पीच", "वॉइस", "सुनाओ", "बोलो", "बताओ", "सुनाईए", "बोलिए", "आवाज", "ध्वनि", "कहो"],
+        "bengali": ["অডিও", "স্পিচ", "ভয়েস", "শোনাও", "বলো", "বোলো", "কথা বলো", "শুনি", "কহো"],
+        "tamil": ["ஆடியோ", "ஸ்பீச்ச்", "குரல்", "கேளுங்கள்", "சொல்லுங்கள்", "பேசுங்கள்", "கேள்", "சொல்"],
+        "telugu": ["ఆడియో", "స్పీచ్", "వాయిస్", "వినండి", "చెప్పండి", "మాట్లాడండి", "అనండి", "విని"],
+        "marathi": ["ऑडिओ", "स्पीच", "वॉइस", "ऐका", "बोला", "सांगा", "बोल", "ऐक"],
+        "gujarati": ["ઑડિઓ", "સ્પીચ", "વ voice", "સાંભળો", "બોલો", "કહો", "વાત કરો", "સun"],
+        "kannada": ["ಆಡಿಯೋ", "ಸ್ಪೀಚ್", "ವ voice", "ಕೇಳಿ", "ಹೇಳಿ", "ಮಾತನಾಡಿ", "ಅಂದರು", "ಕೇಳು"],
+        "malayalam": ["ഓഡിയോ", "സ്പീച്ച്", "വ voice", "കേൾക്കുക", "പറയുക", "സംസാരിക്കുക", "ശബ്ദം", "കേൾപ്പിക്കുക"],
+        "punjabi": ["ਆਡੀਓ", "ਸਪੀਚ", "ਵ voice", "ਸੁਣਾਓ", "ਬੋਲੋ", "ਦੱਸੋ", "ਗੱਲ ਕਰੋ", "ਆਵਾਜ਼"],
+        "odia": ["ଅଡିଓ", "ସ୍ପିଚ", "ଭ voice", "ଶୁଣାନ୍ତୁ", "କୁହନ୍ତୁ", "କଥା ହେବେ", "ବୋଲ"],
+        "assamese": ["অডিঅ'", "স্পিচ", "ভ voice", "শুনাও", "কোৱা", "কথা কোৱা", "বোল"],
+        "urdu": ["آڈیو", "سپیچ", "آواز", "سنائیں", "بولیں", "بتائیں", "کہیں"],
+        "spanish": ["audio", "voz", "escuchar", "oír", "habla", "dilo"],
+        "french": ["audio", "voix", "écouter", "entendre", "parle", "dis"]
+    }
+
 def get_processor_status() -> Dict[str, Any]:
     """Get the status of the image processor"""
+    cache_stats = get_cache_stats()
     return {
         "initialized": image_processor.initialized,
-        "gemini_available": image_processor.gemini_model is not None,
-        "pinecone_available": image_processor.vector_store is not None
+        "gemini_available": image_processor.client is not None,
+        "tts_available": True,  # gTTS is available
+        "pinecone_available": image_processor.vector_store is not None,
+        "cache_enabled": True,
+        "cache_stats": cache_stats,
+        "supported_languages": get_supported_languages(),
+        "audio_keywords": get_audio_request_keywords()
     }

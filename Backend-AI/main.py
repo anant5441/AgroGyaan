@@ -51,6 +51,7 @@ async def health_check():
                 "GET /docs",
                 "POST /api/chat",
                 "POST /api/chat-with-image",
+                "POST /api/generate-audio",
                 "GET /api/organic-guide",
                 "GET /api/market-prices",
                 "GET /api/crop-recommendation"

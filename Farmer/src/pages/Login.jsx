@@ -464,7 +464,7 @@ const AuthPage = () => {
         baseUrl = 'https://farmer-bice.vercel.app/';
         break;
       case 'buyer':
-        baseUrl = 'http://localhost:5174/';
+        baseUrl = 'https://buyer-iota.vercel.app/';
         break;
       case 'supplier':
         baseUrl = 'https://equip-seller.vercel.app/';

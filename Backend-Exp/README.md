@@ -1,6 +1,6 @@
 # 🏪 AgroGyaan Backend-Exp - Core Marketplace API
 
-A robust Express.js backend service that powers the core marketplace functionality of the AgroGyaan platform, handling user authentication, crop listings, and marketplace operations.
+AgroGyaan Backend-Exp is an Express.js service powering authentication, user profiles, crop listings, and lightweight user-to-user connection utilities (for chat rooms) used by the platform.
 
 ## 🎯 Overview
 
@@ -9,6 +9,11 @@ The Backend-Exp service provides the essential marketplace infrastructure for:
 - **Crop Listing Management** - Complete CRUD operations for agricultural product listings
 - **User Profile Management** - User data handling and profile updates
 - **Marketplace Operations** - Core marketplace functionality and data management
+
+### Messaging & Connections (Used by Chats)
+- **Unconnected Users** - Find users not yet connected to the current user
+- **Deterministic Room IDs** - Create stable room IDs for any two users
+- **Room Linking** - Persist room IDs on both users to avoid duplicates
 
 
 ## 🔌 API Documentation
@@ -200,10 +205,9 @@ GET /api/users/unconnected-users?user_id=<user_id>
 ```json
 {
   "success": true,
-  "unconnected_ids": [
-    "64a7b8c9d1e2f3g4h5i6j7k9",
-    "64a7b8c9d1e2f3g4h5i6j7k0",
-    "64a7b8c9d1e2f3g4h5i6j7k1"
+  "unconnected_users": [
+    { "id": "64a7...k9", "name": "Jane Smith", "role": "buyer" },
+    { "id": "64a7...k0", "name": "Amit Kumar", "role": "farmer" }
   ],
   "metadata": {
     "total_users": 10,
@@ -330,6 +334,35 @@ Content-Type: application/json
 ```
 
 **Deployed Endpoint:** `https://backend-exp-yul4.onrender.com/api/users/add-room`
+
+#### 4. Get My Rooms (with other user details)
+```http
+GET /api/users/my-rooms?user_id=<user_id>
+```
+
+**Query Parameters:**
+- `user_id` (required) - The ID of the user whose rooms to fetch
+
+**Response:**
+```json
+{
+  "success": true,
+  "rooms": [
+    {
+      "id": "64a7...12_64b8...9f",    
+      "name": "Jane Smith",
+      "role": "buyer",
+      "other_user_id": "64b8...9f"
+    }
+  ],
+  "metadata": {
+    "total_rooms": 2,
+    "rooms_with_details": 2
+  }
+}
+```
+
+**Deployed Endpoint:** `https://backend-exp-yul4.onrender.com/api/users/my-rooms?user_id=<user_id>`
 
 
 ### Crop Listing Endpoints

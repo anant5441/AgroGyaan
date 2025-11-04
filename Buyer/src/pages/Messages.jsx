@@ -32,49 +32,33 @@ const Messages = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
-  const [unconnectedList,setUnconnectedList] = useState([]);
-  const [refresh,setrefresh] = useState(0);
+  const [unconnectedList, setUnconnectedList] = useState([]);
+  const [refresh, setrefresh] = useState(0);
   const [currentUser, setcurrentUser] = useState({
     id: 'temp',
     displayName: 'Demo Farmer',
     email: 'demo@agrogyan.com'
   });
-const [farmersList,setFarmerList] = useState([
-    {
-      id: 1,
-      name: "Ramesh Patel",
-      role: "Farmer"
-    },
-    {
-      id: 2,
-      name: "Priya Sharma",
-      role: "Farmer"
-    },
-    {
-      id: 3,
-      name: "Kumar Singh",
-      role: "Farmer"
-    }
-  ])
-
+  const [farmersList, setFarmerList] = useState([])
 
   useEffect(() => {
-    let stored = window.sessionStorage.getItem('user');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setcurrentUser(parsed);
-      } catch (err) {
-        console.error('Invalid JSON in sessionStorage:', err);
+    const fetchCurrentUser = () => {
+      let stored = window.sessionStorage.getItem('user');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setcurrentUser(parsed);
+          return parsed;
+        } catch (err) {
+          console.error('Invalid JSON in sessionStorage:', err);
+          return null;
+        }
       }
-    }else
-      return
-    
-
-    const fetchData = async () => {
-      // Placeholder for any initial data fetching if needed
-      if(currentUser.id === "temp") return
-      let URL = BaseURL + "/api/users/my-rooms?user_id=" + encodeURIComponent(currentUser["id"]);
+      return null;
+    }
+    const fetchData = async (user) => {
+      if (!user || user.id === "temp") return;
+      let URL = BaseURL + "/api/users/my-rooms?user_id=" + encodeURIComponent(user.id);
       try {
         const response = await fetch(URL);
         if (!response.ok) {
@@ -87,11 +71,9 @@ const [farmersList,setFarmerList] = useState([
         console.error("Error fetching data:", error);
       }
     }
-
-
-    const fetchUnconnected = async ()=> {
-      if(currentUser.id === "temp") return
-      let URL = BaseURL + "/api/users/unconnected-users?user_id=" + encodeURIComponent(currentUser["id"]);
+    const fetchUnconnected = async (user) => {
+      if (!user || user.id === "temp") return;
+      let URL = BaseURL + "/api/users/unconnected-users?user_id=" + encodeURIComponent(user.id);
       try {
         const response = await fetch(URL);
         if (!response.ok) {
@@ -104,11 +86,16 @@ const [farmersList,setFarmerList] = useState([
         console.error("Error fetching data:", error);
       }
     }
-
-    setTimeout(() => {
-      fetchData();
-      fetchUnconnected();
-    },1000);
+    const initializeData = async () => {
+      const user = fetchCurrentUser();
+      if (user) {
+        await Promise.all([fetchData(user), fetchUnconnected(user)]);
+      }
+    }
+    const timeoutId = setTimeout(() => {
+      initializeData();
+    }, 200);
+    return () => clearTimeout(timeoutId);
   }, [refresh]);
 
 
@@ -174,14 +161,14 @@ const [farmersList,setFarmerList] = useState([
     }
   }, [selectedFarmer]);
 
-// Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
-const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
 
     if (!newMessage.trim() || !farmersList[selectedFarmer]) return;
@@ -251,10 +238,10 @@ const handleSendMessage = async (e) => {
     setShowNewChatModal(true);
   };
 
- const handleSelectFarmerForNewChat = async (index) => {
+  const handleSelectFarmerForNewChat = async (index) => {
     try {
       const selectedUnconnectedFarmer = unconnectedList[index];
-      
+
       // Call API to create a new room
       const URL = BaseURL + '/api/users/add-room';
       const res = await fetch(URL, {
@@ -294,7 +281,7 @@ const handleSendMessage = async (e) => {
       setSelectedFarmer(farmersList.length);
 
       setShowNewChatModal(false);
-      setrefresh(refresh+1)
+      setrefresh(refresh + 1)
     } catch (error) {
       console.error('Error creating new chat:', error);
       alert('Failed to start new chat. Please try again.');
@@ -418,14 +405,14 @@ const handleSendMessage = async (e) => {
                     >
                       <div
                         className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${message.senderId === currentUser.id
-                            ? 'bg-gradient-primary text-primary-foreground'
-                            : 'bg-muted'
+                          ? 'bg-gradient-primary text-primary-foreground'
+                          : 'bg-muted'
                           }`}
                       >
                         <p className="text-sm">{message.text}</p>
                         <p className={`text-xs mt-1 ${message.senderId === currentUser.id
-                            ? 'text-primary-foreground/70'
-                            : 'text-muted-foreground'
+                          ? 'text-primary-foreground/70'
+                          : 'text-muted-foreground'
                           }`}>
                           {formatTime(message.createdAt)}
                         </p>

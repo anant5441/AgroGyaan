@@ -46,6 +46,13 @@
 - **Treatment Recommendations**: AI-generated solutions based on image analysis
 - **Real-Time Processing**: Fast image analysis with optimized performance
 
+### 🔊 Audio & Accessibility
+- **Text-to-Speech (TTS)**: Convert assistant answers into audio (MP3)
+- **Multi-language Support**: 12+ languages (en, hi, es, fr, bn, ta, te, mr, gu, kn, ml, pa)
+- **Keyword Triggers**: Detects intent words like "audio", "voice", "listen" to offer speech output
+- **Lightweight Delivery**: Base64-encoded audio data suitable for web/mobile playback
+- **Health & Status**: Dedicated endpoints to list supported languages and keywords
+
 
 ## 📚 API Documentation
 
@@ -126,6 +133,63 @@ image: <binary image data>
   },
   "agricultural_alerts": ["Winter season: Protect crops from frost and cold waves"],
   "crop_suggestions": ["Wheat", "Barley", "Mustard", "Peas", "Chickpeas"]
+}
+```
+
+#### 1d. Generate Audio from Text (Text-to-Speech)
+```http
+POST /api/generate-audio
+Content-Type: application/json
+
+{
+  "text": "Today's farming advice: Water your crops early in the morning.",
+  "language": "en"
+}
+```
+
+**Supported languages**: `en`, `hi`, `es`, `fr`, `bn`, `ta`, `te`, `mr`, `gu`, `kn`, `ml`, `pa`
+
+**Response:**
+```json
+{
+  "audio_data": "<base64-encoded-mp3>",
+  "audio_format": "audio/mp3",
+  "audio_language": "en",
+  "text_length": 64,
+  "status": "success"
+}
+```
+
+#### 1e. Get Supported TTS Languages
+```http
+GET /api/supported-languages
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "languages": {
+    "en": "English",
+    "hi": "Hindi"
+    // ... more languages
+  },
+  "count": 12
+}
+```
+
+#### 1f. Get Audio Request Keywords
+```http
+GET /api/audio-request-keywords
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "keywords": {
+    "english": ["audio", "speech", "voice", "listen", "hear"]
+  }
 }
 ```
 

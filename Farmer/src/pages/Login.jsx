@@ -97,8 +97,8 @@ const storageUtils = {
         localStorage.setItem('agrogyaan_user', JSON.stringify(dataToStore));
         localStorage.setItem('agrogyaan_token', userData.token);
       } else {
-        sessionStorage.setItem('agrogyaan_user', JSON.stringify(dataToStore));
-        sessionStorage.setItem('agrogyaan_token', userData.token);
+        localStorage.setItem('agrogyaan_user', JSON.stringify(dataToStore));
+        localStorage.setItem('agrogyaan_token', userData.token);
       }
       
       console.log('User data saved to storage:', {
@@ -464,7 +464,8 @@ const AuthPage = () => {
         baseUrl = 'https://farmer-bice.vercel.app/';
         break;
       case 'buyer':
-        baseUrl = 'https://buyer-iota.vercel.app/';
+        baseUrl = 'http://localhost:5174/'
+        //baseUrl = 'https://buyer-iota.vercel.app/';
         break;
       case 'supplier':
         baseUrl = 'https://equip-seller.vercel.app/';

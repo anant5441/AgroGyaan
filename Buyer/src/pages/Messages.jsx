@@ -23,7 +23,7 @@ import {
   setDoc
 } from 'firebase/firestore';
 
-const BaseURL = "http://127.0.0.1:5002"
+const BaseURL = "https://agrogyaan-b-ai.onrender.com";
 
 const Messages = () => {
   const [selectedFarmer, setSelectedFarmer] = useState(0);

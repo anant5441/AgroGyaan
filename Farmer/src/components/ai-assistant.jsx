@@ -488,15 +488,26 @@ export function AIAssistant() {
 
   return (
     <>
+
       {/* Floating Chat Button */}
       <button
         onClick={handleToggle}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-green-600 hover:bg-green-700 shadow-lg z-50 transition-all duration-300 hover:scale-110 flex items-center justify-center text-white"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg z-50 transition-all duration-300 hover:scale-110 flex items-center justify-center text-white group"
         aria-label="Open chat"
       >
-        {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+        {/* Ping animation that runs for 5 seconds when site loads */}
+        <div 
+          className="absolute inset-0 rounded-full border-2 border-green-300 border-opacity-30"
+          style={{ 
+            animation: 'ping 2s ease-in-out 4',
+            animationFillMode: 'forwards'
+          }}
+        />
+        
+        <div className="relative z-10">
+          {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+        </div>
       </button>
-
       {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-80 sm:w-96 h-96 sm:h-[550px] flex flex-col shadow-xl z-50 rounded-xl border border-green-200 overflow-hidden bg-white">
@@ -607,11 +618,29 @@ export function AIAssistant() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={selectedImage ? "Add a question with your image..." : "Ask about farming or upload crop image..."}
-                  className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-50"
+                  placeholder={
+                    selectedImage
+                      ? "Add a question with your image..."
+                      : "Ask about farming or upload crop image..."
+                  }
+                  className="
+                    flex-1 px-4 py-2 text-sm rounded-md
+                    border border-green-300
+                    bg-gradient-to-r from-green-50 to-white
+                    text-gray-900 placeholder:text-gray-500
+                    shadow-inner transition-all duration-300
+                    focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-400
+                    focus:from-green-100 focus:to-white
+
+                    dark:bg-gradient-to-r dark:from-gray-800 dark:to-gray-900
+                    dark:text-gray-100 dark:placeholder:text-gray-400
+                    dark:border-green-700 dark:focus:ring-green-400 dark:focus:border-green-500
+                  "
                   aria-label="Type your message"
                   disabled={isLoading}
                 />
+
+
 
                 {/* Send Button */}
                 <button

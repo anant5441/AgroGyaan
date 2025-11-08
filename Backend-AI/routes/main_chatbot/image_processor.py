@@ -16,7 +16,6 @@ from .chat import (
     get_seasonal_info,
     get_agricultural_alerts,
     get_crop_suggestions,
-    detect_user_location,
     get_weather_data,
     needs_location_detection,
     extract_location_from_query
@@ -155,7 +154,7 @@ class ImageProcessor:
         # Default to English if no specific language requested
         return "en"
     
-    def _get_contextual_data(self, query: str):
+    def _get_contextual_data(self, query: str, user_location_data: Optional[Dict[str, Any]] = None):
         """Get location, weather, and seasonal context using existing functions"""
         context_data = {
             "location_data": {},
@@ -168,26 +167,31 @@ class ImageProcessor:
         try:
             # Check if query needs location detection
             if needs_location_detection(query):
-                extracted_location = extract_location_from_query(query)
+                # Priority 1: Use frontend-provided location data
+                if user_location_data and "error" not in user_location_data:
+                    logger.info("Using frontend-provided location data")
+                    context_data["location_data"] = user_location_data
+                    context_data["weather_data"] = get_weather_data(
+                        user_location_data.get("latitude"),
+                        user_location_data.get("longitude"),
+                        user_location_data.get("city", "Unknown")
+                    )
                 
-                if extracted_location:
-                    # Use extracted location
+                # Priority 2: Extract location from query
+                elif extract_location_from_query(query):
+                    extracted_location = extract_location_from_query(query)
+                    logger.info(f"Using extracted location from query: {extracted_location}")
                     context_data["location_data"] = {
                         "city": extracted_location,
                         "detected_via": "query extraction"
                     }
                     context_data["weather_data"] = get_weather_data(None, None, extracted_location)
+                
+                # Priority 3: Location not available
                 else:
-                    # Detect user location
-                    location_data = detect_user_location()
-                    context_data["location_data"] = location_data
-                    
-                    if "error" not in location_data:
-                        context_data["weather_data"] = get_weather_data(
-                            location_data.get("latitude"),
-                            location_data.get("longitude"),
-                            location_data.get("city", "Unknown")
-                        )
+                    logger.info("No location data available")
+                    context_data["location_data"] = {"error": "Location not available"}
+                    context_data["weather_data"] = {"error": "Location required for weather data"}
             
             # Get agricultural alerts and crop suggestions
             if context_data["weather_data"] and "error" not in context_data["weather_data"]:
@@ -358,7 +362,7 @@ class ImageProcessor:
             logger.error(f"Error processing image with Gemini: {str(e)}")
             raise
     
-    async def process_image_query(self, query: str, image_b64: str, image_type: str) -> Dict[str, Any]:
+    async def process_image_query(self, query: str, image_b64: str, image_type: str, user_location_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Process image queries using Gemini with comprehensive Pinecone document context
         """
@@ -374,7 +378,7 @@ class ImageProcessor:
                 logger.info(f"Audio requested in language: {audio_language}")
             
             # Step 2: Get contextual data (location, weather, season)
-            contextual_data = self._get_contextual_data(query)
+            contextual_data = self._get_contextual_data(query, user_location_data)
             
             # Step 3: Retrieve relevant documents from Pinecone
             relevant_docs = retrieve_relevant_documents(query, threshold=0.5)
@@ -488,18 +492,18 @@ class ImageProcessor:
 image_processor = ImageProcessor()
 
 # Public functions
-async def process_image_query(query: str, image_b64: str, image_type: str) -> Dict[str, Any]:
+async def process_image_query(query: str, image_b64: str, image_type: str, user_location_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Public interface for processing image queries
     """
-    return await image_processor.process_image_query(query, image_b64, image_type)
+    return await image_processor.process_image_query(query, image_b64, image_type, user_location_data)
 
-async def process_image_only_query(image_b64: str, image_type: str) -> Dict[str, Any]:
+async def process_image_only_query(image_b64: str, image_type: str, user_location_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Process image-only queries (when no text query is provided)
     """
     general_query = "Analyze this farming image and provide comprehensive agricultural insights including crop health, potential issues, and practical recommendations"
-    return await image_processor.process_image_query(general_query, image_b64, image_type)
+    return await image_processor.process_image_query(general_query, image_b64, image_type, user_location_data)
 
 async def generate_audio_from_text(text: str, language: str = "en") -> Optional[Dict[str, Any]]:
     """
@@ -588,7 +592,7 @@ def get_audio_request_keywords() -> Dict[str, list]:
         "telugu": ["ఆడియో", "స్పీచ్", "వాయిస్", "వినండి", "చెప్పండి", "మాట్లాడండి", "అనండి", "విని"],
         "marathi": ["ऑडिओ", "स्पीच", "वॉइस", "ऐका", "बोला", "सांगा", "बोल", "ऐक"],
         "gujarati": ["ઑડિઓ", "સ્પીચ", "વ voice", "સાંભળો", "બોલો", "કહો", "વાત કરો", "સun"],
-        "kannada": ["ಆಡಿಯೋ", "ಸ್ಪೀಚ್", "ವ voice", "ಕೇಳಿ", "ಹೇಳಿ", "ಮಾತನಾಡಿ", "ಅಂದರು", "ಕೇಳು"],
+        "kannada": ["ಆಡಿಯೋ", "ಸ್ಪೀಚ್", "ವ voice", "ಕೇಳಿ", "ಹೇಳಿ", "ಮಾತನಾಡಿ", "अनदरु", "ಕೇಳು"],
         "malayalam": ["ഓഡിയോ", "സ്പീച്ച്", "വ voice", "കേൾക്കുക", "പറയുക", "സംസാരിക്കുക", "ശബ്ദം", "കേൾപ്പിക്കുക"],
         "punjabi": ["ਆਡੀਓ", "ਸਪੀਚ", "ਵ voice", "ਸੁਣਾਓ", "ਬੋਲੋ", "ਦੱਸੋ", "ਗੱਲ ਕਰੋ", "ਆਵਾਜ਼"],
         "odia": ["ଅଡିଓ", "ସ୍ପିଚ", "ଭ voice", "ଶୁଣାନ୍ତୁ", "କୁହନ୍ତୁ", "କଥା ହେବେ", "ବୋଲ"],
@@ -609,5 +613,6 @@ def get_processor_status() -> Dict[str, Any]:
         "cache_enabled": True,
         "cache_stats": cache_stats,
         "supported_languages": get_supported_languages(),
-        "audio_keywords": get_audio_request_keywords()
+        "audio_keywords": get_audio_request_keywords(),
+        "location_support": "frontend_provided"
     }

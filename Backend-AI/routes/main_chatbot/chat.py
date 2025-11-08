@@ -508,75 +508,130 @@ def get_gemini_model():
     except Exception as e:
         raise ValueError(f"Failed to initialize Gemini model: {str(e)}")
 
-def detect_user_location():
-    """Detect user's location using Geoapify API"""
-    try:
-        weather_limiter.acquire()
-        api_key = os.getenv("GEOAPIFY_API_KEY")
-        if not api_key:
-            return {"error": "GEOAPIFY_API_KEY not found in environment variables"}
-        
-        url = f"https://api.geoapify.com/v1/ipinfo?apiKey={api_key}"
-        response = requests.get(url, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            location_data = {
-                "city": data.get("city", {}).get("name", "Unknown"),
-                "country": data.get("country", {}).get("name", "Unknown"),
-                "state": data.get("state", {}).get("name", "Unknown"),
-                "latitude": data.get("location", {}).get("latitude"),
-                "longitude": data.get("location", {}).get("longitude"),
-                "detected_via": "IP geolocation"
-            }
-            logger.info(f"Detected location: {location_data['city']}, {location_data['state']}")
-            return location_data
-        else:
-            error_msg = f"Failed to detect location: HTTP {response.status_code}"
-            logger.error(error_msg)
-            return {"error": error_msg}
-    except Exception as e:
-        error_msg = f"Location detection error: {str(e)}"
-        logger.error(error_msg)
-        return {"error": error_msg}
+# REMOVED: detect_user_location function - Now handled by frontend
 
 def get_weather_data(latitude, longitude, location_name):
-    """Get current weather data for a location"""
+    """Get current weather data for a location using frontend-provided data"""
     try:
         weather_limiter.acquire()
         api_key = os.getenv("OPENWEATHER_API_KEY")
-        if not api_key:
-            return {"error": "OPENWEATHER_API_KEY not found in environment variables"}
         
-        if latitude and longitude:
-            url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={api_key}&units=metric"
-        else:
+        # If no API key, return informative error
+        if not api_key:
+            logger.warning("OPENWEATHER_API_KEY not found in environment variables")
+            return {
+                "error": "Weather service temporarily unavailable",
+                "location": location_name or "Unknown",
+                "temperature": "N/A",
+                "conditions": "Weather data not available"
+            }
+        
+        # Try location name first
+        if location_name and location_name != "Unknown":
             url = f"https://api.openweathermap.org/data/2.5/weather?q={location_name}&appid={api_key}&units=metric"
+            logger.info(f"Attempting weather API call for location: {location_name}")
+            
+            response = requests.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return format_weather_data(data, location_name)
+            elif response.status_code == 404:
+                logger.warning(f"Location '{location_name}' not found in weather API")
+                # Fall back to coordinates if available
+                if latitude and longitude:
+                    return get_weather_by_coordinates(latitude, longitude, location_name, api_key)
+                else:
+                    return create_fallback_weather_data(location_name, "Location not found in weather service")
+            else:
+                logger.error(f"Weather API error for {location_name}: HTTP {response.status_code}")
+                return create_fallback_weather_data(location_name, f"API error: {response.status_code}")
+        
+        # Try coordinates if location name fails or not provided
+        elif latitude and longitude:
+            return get_weather_by_coordinates(latitude, longitude, location_name, api_key)
+        else:
+            return create_fallback_weather_data(location_name or "Unknown", "No location data provided")
+            
+    except requests.exceptions.Timeout:
+        logger.error("Weather API request timeout")
+        return create_fallback_weather_data(location_name or "Unknown", "Weather service timeout")
+    except requests.exceptions.ConnectionError:
+        logger.error("Weather API connection error")
+        return create_fallback_weather_data(location_name or "Unknown", "Weather service unavailable")
+    except Exception as e:
+        logger.error(f"Weather API unexpected error: {str(e)}")
+        return create_fallback_weather_data(location_name or "Unknown", f"Service error: {str(e)}")
+
+def get_weather_by_coordinates(latitude, longitude, location_name, api_key):
+    """Get weather data using coordinates"""
+    try:
+        url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={api_key}&units=metric"
+        logger.info(f"Attempting weather API call by coordinates: {latitude}, {longitude}")
         
         response = requests.get(url, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
-            weather_data = {
-                "location": data.get("name", location_name),
-                "temperature": data["main"].get("temp", "N/A"),
-                "feels_like": data["main"].get("feels_like", "N/A"),
-                "humidity": data["main"].get("humidity", "N/A"),
-                "conditions": data["weather"][0].get("description", "N/A"),
-                "wind_speed": data["wind"].get("speed", "N/A"),
-                "pressure": data["main"].get("pressure", "N/A"),
-                "visibility": data.get("visibility", "N/A")
-            }
-            logger.info(f"Weather data retrieved for {weather_data['location']}")
-            return weather_data
+            return format_weather_data(data, location_name or data.get("name", "Unknown"))
         else:
-            error_msg = f"Failed to get weather data: HTTP {response.status_code}"
-            logger.error(error_msg)
-            return {"error": error_msg}
+            logger.error(f"Weather API coordinate error: HTTP {response.status_code}")
+            return create_fallback_weather_data(location_name or "Unknown", f"Coordinate lookup failed: {response.status_code}")
     except Exception as e:
-        error_msg = f"Weather API error: {str(e)}"
-        logger.error(error_msg)
-        return {"error": error_msg}
+        logger.error(f"Coordinate weather lookup error: {str(e)}")
+        return create_fallback_weather_data(location_name or "Unknown", f"Coordinate lookup error: {str(e)}")
+
+def format_weather_data(data, location_name):
+    """Format weather data from API response"""
+    weather_data = {
+        "location": data.get("name", location_name),
+        "temperature": data["main"].get("temp", "N/A"),
+        "feels_like": data["main"].get("feels_like", "N/A"),
+        "humidity": data["main"].get("humidity", "N/A"),
+        "conditions": data["weather"][0].get("description", "N/A").title() if data.get("weather") else "N/A",
+        "wind_speed": data["wind"].get("speed", "N/A"),
+        "pressure": data["main"].get("pressure", "N/A"),
+        "visibility": data.get("visibility", "N/A"),
+        "api_source": "OpenWeather"
+    }
+    logger.info(f"Weather data successfully retrieved for {weather_data['location']}")
+    return weather_data
+
+def create_fallback_weather_data(location_name, error_reason):
+    """Create fallback weather data when API fails"""
+    # Get seasonal data for reasonable fallback values
+    season_info = get_seasonal_info()
+    current_month = datetime.now().month
+    
+    # Generate reasonable temperature estimates based on season and location
+    base_temp = 25  # Default base temperature
+    
+    if current_month in [12, 1, 2]:  # Winter
+        base_temp = 15 if location_name and "delhi" in location_name.lower() else 18
+        conditions = "Partly Cloudy"
+    elif current_month in [3, 4, 5]:  # Summer
+        base_temp = 35 if location_name and "delhi" in location_name.lower() else 32
+        conditions = "Sunny"
+    elif current_month in [6, 7, 8, 9]:  # Monsoon
+        base_temp = 30
+        conditions = "Humid with Possible Rain"
+    else:  # Post-monsoon
+        base_temp = 28
+        conditions = "Clear"
+    
+    return {
+        "location": location_name or "Unknown",
+        "temperature": base_temp,
+        "feels_like": base_temp + 2,
+        "humidity": 65,
+        "conditions": conditions,
+        "wind_speed": 12,
+        "pressure": 1013,
+        "visibility": 10000,
+        "api_source": "Fallback",
+        "fallback_reason": error_reason,
+        "note": "Using estimated weather data based on season and location"
+    }
 
 def get_seasonal_info(query=""):
     """Get current season information for agricultural context with query awareness"""
@@ -650,32 +705,64 @@ def extract_location_from_query(query):
     """Extract location from query if explicitly mentioned"""
     query_lower = query.lower().strip()
     
-    special_phrases = ["current location", "my location", "here", "this area", "my area", "is weather"]
-    if any(phrase in query_lower for phrase in special_phrases):
-        return None
-    
     logger.info(f"DEBUG: Processing query: '{query_lower}'")
     
+    # SPECIAL CASE: Handle "my location", "here", "current location" etc.
+    # These should NOT be extracted as literal locations
+    special_location_references = [
+        "my location", "current location", "here", "this area", 
+        "my area", "present location", "where i am"
+    ]
+    
+    for ref in special_location_references:
+        if ref in query_lower:
+            logger.info(f"DEBUG: Special location reference '{ref}' found - returning None to use user location")
+            return None  # Return None to indicate we should use user's actual location
+    
+    # Pattern 1: "weather of [location]"
     if "weather of " in query_lower:
         parts = query_lower.split("weather of ")
         if len(parts) > 1:
             location_part = parts[1].strip()
-            potential_location = location_part.split()[0] if location_part.split() else ""
+            # Take all words until the end or next question word
+            potential_location = re.split(r'[.?]', location_part)[0].strip()
             potential_location = potential_location.rstrip('.,!?;')
             
+            # Check if it's a special reference
+            if potential_location.lower() in special_location_references:
+                logger.info(f"DEBUG: 'weather of' with special reference - returning None")
+                return None
+                
             logger.info(f"DEBUG: 'weather of' pattern found. Potential location: '{potential_location}'")
             
             if len(potential_location) > 1:
                 logger.info(f"DEBUG: Returning location from 'weather of' pattern: '{potential_location.title()}'")
                 return potential_location.title()
     
+    # Pattern 2: "weather in [location]"
+    if "weather in " in query_lower:
+        parts = query_lower.split("weather in ")
+        if len(parts) > 1:
+            location_part = parts[1].strip()
+            potential_location = re.split(r'[.?]', location_part)[0].strip()
+            potential_location = potential_location.rstrip('.,!?;')
+            
+            # Check if it's a special reference
+            if potential_location.lower() in special_location_references:
+                logger.info(f"DEBUG: 'weather in' with special reference - returning None")
+                return None
+            
+            logger.info(f"DEBUG: 'weather in' pattern found. Potential location: '{potential_location}'")
+            
+            if len(potential_location) > 1:
+                logger.info(f"DEBUG: Returning location from 'weather in' pattern: '{potential_location.title()}'")
+                return potential_location.title()
+    
+    # Pattern 3: Other weather patterns
     weather_patterns = [
-        "temperature of ",
-        "weather in ",
-        "weather at ",
-        "forecast for ",
-        "humidity in ",
-        "rain in "
+        "temperature of ", "temperature in ", "forecast for ", "forecast in ",
+        "humidity in ", "rain in ", "climate in ", "crop in ", "crops in ",
+        "sow in ", "plant in ", "grow in "
     ]
     
     for pattern in weather_patterns:
@@ -684,11 +771,16 @@ def extract_location_from_query(query):
             remaining_text = query_lower[start_index:].strip()
             
             if remaining_text:
-                potential_words = remaining_text.split()[:2]
-                potential_location = " ".join(potential_words).strip()
+                potential_location = re.split(r'[.?]', remaining_text)[0].strip()
                 potential_location = potential_location.rstrip('.,!?;')
                 
-                question_words = ["what", "is", "the", "a", "an", "for", "today", "now"]
+                # Check if it's a special reference
+                if potential_location.lower() in special_location_references:
+                    logger.info(f"DEBUG: Pattern '{pattern}' with special reference - returning None")
+                    return None
+                
+                # Remove common question words
+                question_words = ["what", "is", "the", "a", "an", "for", "today", "now", "current", "best"]
                 location_words = [word for word in potential_location.split() if word not in question_words]
                 potential_location = " ".join(location_words).strip()
                 
@@ -698,6 +790,7 @@ def extract_location_from_query(query):
                     logger.info(f"DEBUG: Returning location: '{potential_location.title()}'")
                     return potential_location.title()
     
+    # Pattern 4: General location indicators (only for specific locations, not references)
     location_indicators = ["in ", "at ", "near ", "around ", "for ", "of "]
     
     for indicator in location_indicators:
@@ -706,40 +799,46 @@ def extract_location_from_query(query):
             remaining_text = query_lower[start_index:].strip()
             
             if remaining_text:
-                potential_words = remaining_text.split()[:2]
-                potential_location = " ".join(potential_words).strip()
+                potential_location = re.split(r'[.?]', remaining_text)[0].strip()
                 potential_location = potential_location.rstrip('.,!?;')
                 
-                question_words = ["what", "is", "the", "a", "an", "for", "today", "now"]
+                # Skip if it's a special reference
+                if potential_location.lower() in special_location_references:
+                    continue
+                
+                question_words = ["what", "is", "the", "a", "an", "for", "today", "now", "current", "best"]
                 location_words = [word for word in potential_location.split() if word not in question_words]
                 potential_location = " ".join(location_words).strip()
                 
                 logger.info(f"DEBUG: Indicator '{indicator}' found. Potential location: '{potential_location}'")
                 
-                if len(potential_location) > 1:
+                if len(potential_location) > 1 and len(potential_location.split()) <= 3:
                     logger.info(f"DEBUG: Returning location: '{potential_location.title()}'")
                     return potential_location.title()
     
-    cities = ["delhi", "mumbai", "chennai", "kolkata", "bangalore", "hyderabad", 
-              "pune", "jaipur", "ahmedabad", "lucknow", "kanpur", "nagpur", 
-              "indore", "thane", "bhopal", "visakhapatnam", "patna", "ludhiana",
-              "agra", "nashik", "faridabad", "meerut", "rajkot", "varanasi",
-              "srinagar", "amritsar", "allahabad", "howrah", "gwalior", "jodhpur",
-              "raipur", "kota", "chandigarh", "mysore", "bareilly", "guwahati",
-              "jammu", "hubli", "solapur", "trivandrum", "kochi", "coimbatore",
-              "madurai", "jabalpur", "asansol", "dhanbad", "vellore", "ajmer",
-              "kolhapur", "shillong", "ulhasnagar", "jamnagar", "sangli", "bhilai",
-              "guntur", "amravati", "noida", "bhagalpur", "warangal", "ranchi",
-              "kurnool", "gurgaon", "gurugram", "nanded", "dehradun", "durgapur",
-              "kakinada", "nellore", "tiruchirappalli", "ujjain", "muzaffarnagar"]
+    # Pattern 5: Known cities (including Indian cities)
+    indian_cities = [
+        "delhi", "mumbai", "chennai", "kolkata", "bangalore", "hyderabad", "pune", "jaipur",
+        "ahmedabad", "lucknow", "kanpur", "nagpur", "indore", "thane", "bhopal", "visakhapatnam",
+        "patna", "ludhiana", "agra", "nashik", "faridabad", "meerut", "rajkot", "varanasi",
+        "srinagar", "amritsar", "allahabad", "howrah", "gwalior", "jodhpur", "raipur", "kota",
+        "chandigarh", "mysore", "bareilly", "guwahati", "jammu", "hubli", "solapur", "trivandrum",
+        "kochi", "coimbatore", "madurai", "jabalpur", "asansol", "dhanbad", "vellore", "ajmer",
+        "kolhapur", "shillong", "ulhasnagar", "jamnagar", "sangli", "bhilai", "guntur", "amravati",
+        "noida", "bhagalpur", "warangal", "ranchi", "kurnool", "gurgaon", "gurugram", "nanded",
+        "dehradun", "durgapur", "kakinada", "nellore", "tiruchirappalli", "ujjain", "muzaffarnagar",
+        "bewar", "jaunpur", "mirzapur", "saharanpur", "moradabad", "aligarh", "gorakhpur", "firozabad",
+        "meerut", "rourkela", "jamshedpur", "bokaro", "raurkela", "kozhikode", "alappuzha", "kollam",
+        "shimla", "manali", "dehradun", "nainital", "ooty", "mussorie", "darjeeling", "shillong",
+        "gangtok", "itanagar", "kohima", "aizawl", "imphal", "agartala", "shillong", "dispur"
+    ]
     
-    for city in cities:
-        if city in query_lower:
-            words = query_lower.split()
-            for word in words:
-                if city == word:
-                    logger.info(f"DEBUG: City '{city}' found in query. Returning: '{city.title()}'")
-                    return city.title()
+    words = query_lower.split()
+    for word in words:
+        clean_word = word.rstrip('.,!?;')
+        if clean_word in indian_cities:
+            logger.info(f"DEBUG: City '{clean_word}' found in query. Returning: '{clean_word.title()}'")
+            return clean_word.title()
     
     logger.info("DEBUG: No location found in query")
     return None
@@ -1006,7 +1105,6 @@ def handle_special_queries(query, location_data, weather_data):
     is_weather_query = any(term in query_lower for term in weather_terms)
     is_agricultural_query = any(term in query_lower for term in ["crop", "plant", "grow", "agriculture", "farming"])
     
-    
     special_location_phrases = ["current location", "my location", "here", "this area", "my area"]
     is_special_location_query = any(phrase in query_lower for phrase in special_location_phrases)
     
@@ -1016,9 +1114,13 @@ def handle_special_queries(query, location_data, weather_data):
             temp = weather_data.get('temperature', 'N/A')
             conditions = weather_data.get('conditions', 'N/A')
             humidity = weather_data.get('humidity', 'N/A')
-            return f"Current weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%."
+            
+            if weather_data.get('api_source') == 'Fallback':
+                return f"Estimated weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%. Note: {weather_data.get('note', 'Using estimated data')}"
+            else:
+                return f"Current weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%."
         else:
-            return "I couldn't retrieve weather data for your location. Please ensure your OPENWEATHER_API_KEY is set correctly."
+            return "I couldn't retrieve weather data for your location. Please check if your location services are enabled."
     
     elif extracted_location and is_weather_query and not is_agricultural_query:
         weather_data_for_location = get_weather_data(None, None, extracted_location)
@@ -1027,9 +1129,13 @@ def handle_special_queries(query, location_data, weather_data):
             temp = weather_data_for_location.get('temperature', 'N/A')
             conditions = weather_data_for_location.get('conditions', 'N/A')
             humidity = weather_data_for_location.get('humidity', 'N/A')
-            return f"Weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%."
+            
+            if weather_data_for_location.get('api_source') == 'Fallback':
+                return f"Estimated weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%. Note: {weather_data_for_location.get('note', 'Using estimated data')}"
+            else:
+                return f"Weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%."
         else:
-            return f"Could not retrieve weather data for {extracted_location}. Please check if the city name is correct and your OPENWEATHER_API_KEY is valid."
+            return f"Could not retrieve weather data for {extracted_location}. The location might not be recognized by the weather service."
     
     elif is_weather_query and not is_agricultural_query and not extracted_location:
         if weather_data and "error" not in weather_data:
@@ -1037,16 +1143,20 @@ def handle_special_queries(query, location_data, weather_data):
             temp = weather_data.get('temperature', 'N/A')
             conditions = weather_data.get('conditions', 'N/A')
             humidity = weather_data.get('humidity', 'N/A')
-            return f"Current weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%."
+            
+            if weather_data.get('api_source') == 'Fallback':
+                return f"Estimated weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%. Note: {weather_data.get('note', 'Using estimated data')}"
+            else:
+                return f"Current weather in {location}: {temp}°C, {conditions}, Humidity: {humidity}%."
         else:
-            return "I couldn't retrieve weather data. Please ensure your OPENWEATHER_API_KEY is set correctly."
+            return "I couldn't retrieve weather data. Please ensure your location services are enabled."
     
     location_only_terms = ["location", "where am i", "my location", "this area"]
     if any(term in query_lower for term in location_only_terms) and not is_agricultural_query:
         if location_data and "error" not in location_data:
             return f"Your current location is {location_data.get('city', 'Unknown')}, {location_data.get('state', 'Unknown')}, {location_data.get('country', 'Unknown')}."
         else:
-            return "I couldn't determine your location. Please ensure your GEOAPIFY_API_KEY is set correctly."
+            return "I couldn't determine your location. Location detection is now handled by the frontend."
     
     return None
 
@@ -1415,15 +1525,15 @@ def ensure_complete_sentences(text):
     else:
         return text + '.'
 
-def process_regular_agricultural_query(query):
-    """Process regular agricultural queries using Pinecone"""
+def process_regular_agricultural_query(query, user_location_data=None):
+    """Process regular agricultural queries using Pinecone with frontend location data"""
     state = AgentState(
         query=query,
         documents=None,
         answer="",
         source_documents=[],
         weather_data={},
-        user_location={},
+        user_location=user_location_data or {},
         llm_source="",
         error=None,
         needs_location=False,
@@ -1447,54 +1557,52 @@ def process_regular_agricultural_query(query):
         logger.info(f"DEBUG: Query: '{query}'")
         logger.info(f"DEBUG: Extracted location: '{extracted_location}'")
         logger.info(f"DEBUG: Is weather query: {is_weather_query}")
+        logger.info(f"DEBUG: User provided location: {user_location_data}")
         
         if state["needs_location"]:
-            if extracted_location and is_weather_query:
-                logger.info(f"Using extracted location for weather query: {extracted_location}")
-                state["user_location"] = {
-                    "city": extracted_location,
-                    "detected_via": "query extraction"
-                }
-                weather_data = get_weather_data(None, None, extracted_location)
+            # CASE 1: Special location reference ("my location", "here", etc.) - use user location
+            special_references = ["my location", "current location", "here", "this area", "my area"]
+            has_special_reference = any(ref in query_lower for ref in special_references)
+            
+            if has_special_reference and user_location_data and "error" not in user_location_data:
+                logger.info("Special location reference detected - using user's actual location")
+                state["user_location"] = user_location_data
+                weather_data = get_weather_data(
+                    user_location_data.get("latitude"),
+                    user_location_data.get("longitude"),
+                    user_location_data.get("city", "Unknown")
+                )
                 state["weather_data"] = weather_data
             
-            elif any(phrase in query_lower for phrase in ["current location", "my location", "here", "this area", "my area"]):
-                logger.info("Special location query detected. Detecting user location...")
-                location_data = detect_user_location()
-                state["user_location"] = location_data
-                
-                if "error" not in location_data:
-                    logger.info("Fetching weather data for user location...")
-                    weather_data = get_weather_data(
-                        location_data.get("latitude"),
-                        location_data.get("longitude"),
-                        location_data.get("city", "Unknown")
-                    )
-                    state["weather_data"] = weather_data
-            
+            # CASE 2: Specific location extracted from query
             elif extracted_location:
-                logger.info(f"Using location extracted from query: {extracted_location}")
+                logger.info(f"Using extracted location from query: {extracted_location}")
                 state["user_location"] = {
                     "city": extracted_location,
-                    "detected_via": "query extraction"
+                    "detected_via": "query extraction",
+                    "explicitly_mentioned": True
                 }
                 weather_data = get_weather_data(None, None, extracted_location)
                 state["weather_data"] = weather_data
             
+            # CASE 3: Use frontend-provided location as fallback
+            elif user_location_data and "error" not in user_location_data:
+                logger.info("Using frontend-provided location data")
+                state["user_location"] = user_location_data
+                weather_data = get_weather_data(
+                    user_location_data.get("latitude"),
+                    user_location_data.get("longitude"),
+                    user_location_data.get("city", "Unknown")
+                )
+                state["weather_data"] = weather_data
+            
+            # CASE 4: No location available
             else:
-                logger.info("No location found in query. Detecting user location...")
-                location_data = detect_user_location()
-                state["user_location"] = location_data
-                
-                if "error" not in location_data:
-                    logger.info("Fetching weather data for user location...")
-                    weather_data = get_weather_data(
-                        location_data.get("latitude"),
-                        location_data.get("longitude"),
-                        location_data.get("city", "Unknown")
-                    )
-                    state["weather_data"] = weather_data
+                logger.info("No location data available")
+                state["user_location"] = {"error": "Location not available"}
+                state["weather_data"] = {"error": "Location required for weather data"}
         
+        # Check if this is a direct weather query that should be handled specially
         special_answer = handle_special_queries(query, state["user_location"], state["weather_data"])
         if special_answer:
             return {
@@ -1509,6 +1617,7 @@ def process_regular_agricultural_query(query):
                 "crop_suggestions": []
             }
         
+        # Rest of the function remains the same...
         query_hash = get_query_hash(query, state["user_location"], state["weather_data"])
         cached_response = check_cache(query_hash)
         if cached_response:
@@ -1576,11 +1685,11 @@ def process_regular_agricultural_query(query):
         logger.error(error_msg)
         return {"error": error_msg}
 
-def process_agricultural_query_with_greeting(query):
+def process_agricultural_query_with_greeting(query, user_location_data=None):
     """Process queries that start with greeting but have agricultural content"""
     agricultural_part = extract_agricultural_content(query)
     
-    response = process_regular_agricultural_query(agricultural_part)
+    response = process_regular_agricultural_query(agricultural_part, user_location_data)
     
     if "error" not in response:
         greeting = get_friendly_greeting()
@@ -1589,9 +1698,10 @@ def process_agricultural_query_with_greeting(query):
     
     return response
 
-def process_query(query):
-    """Main function to process a user query"""
+def process_query(query, user_location_data=None):
+    """Main function to process a user query with optional frontend location data"""
     logger.info(f"Processing query: {query}")
+    logger.info(f"User location data: {user_location_data}")
     
     normalized_query = query.lower().strip()
     
@@ -1609,10 +1719,10 @@ def process_query(query):
         
         if has_greeting_removed and has_agricultural_content_after_greeting(query):
             logger.info("Mixed query detected: greeting + agricultural content")
-            return process_agricultural_query_with_greeting(query)
+            return process_agricultural_query_with_greeting(query, user_location_data)
         else:
             logger.info("Regular agricultural query detected")
-            return process_regular_agricultural_query(query)
+            return process_regular_agricultural_query(query, user_location_data)
 
 def format_response(state, season_info):
     """Format the final response"""

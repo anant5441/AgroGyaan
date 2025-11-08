@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import logging
 import base64
+import json
 from .chat import process_query  # Import your existing process_query function
 from .image_processor import process_image_query, generate_audio_from_text, get_supported_languages, get_audio_request_keywords, get_processor_status # Import image processor and audio functions
 
@@ -15,6 +16,7 @@ router = APIRouter()
 # Request models
 class ChatRequest(BaseModel):
     query: str
+    user_location: Optional[Dict[str, Any]] = None
 
 class AudioRequest(BaseModel):
     text: str
@@ -52,12 +54,13 @@ async def root():
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
-    """Process a chat query"""
+    """Process a chat query with optional location data"""
     try:
         logger.info(f"Processing query: {request.query}")
+        logger.info(f"User location data: {request.user_location}")
         
-        # Process the query using your existing function
-        result = process_query(request.query)
+        # Process the query using your existing function with location data
+        result = process_query(request.query, request.user_location)
         
         # Check if there's an error in the result
         if "error" in result:
@@ -98,7 +101,8 @@ async def chat_endpoint(request: ChatRequest):
 @router.post("/chat-with-image")
 async def chat_with_image(
     query: str = Form(None),
-    image: UploadFile = File(None)
+    image: UploadFile = File(None),
+    user_location: str = Form(None)
 ):
     """Process chat queries with images using Gemini"""
     try:
@@ -110,18 +114,28 @@ async def chat_with_image(
         if not image.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="Please upload a valid image file (JPEG, PNG, etc.)")
         
+        # Parse user_location if provided
+        location_data = None
+        if user_location:
+            try:
+                location_data = json.loads(user_location)
+                logger.info(f"Parsed location data: {location_data}")
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse location data: {e}")
+        
         # Read and encode image
         image_bytes = await image.read()
         image_b64 = base64.b64encode(image_bytes).decode('utf-8')
         
         # Process with Gemini using existing Pinecone infrastructure
         if query and query.strip():
-            response = await process_image_query(query.strip(), image_b64, image.content_type)
+            response = await process_image_query(query.strip(), image_b64, image.content_type, location_data)
         else:
             response = await process_image_query(
                 "Analyze this farming image and provide agricultural insights", 
                 image_b64, 
-                image.content_type
+                image.content_type,
+                location_data
             )
         
         # Convert to ChatResponse format for consistency
@@ -268,6 +282,12 @@ async def health_check():
                 "audio_generation": "/api/generate-audio",
                 "supported_languages": "/api/supported-languages"
             },
+            "features": {
+                "location_support": "frontend_provided",
+                "image_analysis": "enabled",
+                "audio_generation": "enabled",
+                "multi_language": "enabled"
+            },
             "processor_status": processor_status
         }
     except Exception as e:
@@ -281,4 +301,34 @@ async def health_check():
                 "image_chat": "/api/chat-with-image",
                 "audio_generation": "/api/generate-audio"
             }
+        }
+
+# New endpoint to test location functionality
+@router.post("/test-location")
+async def test_location_endpoint(user_location: Dict[str, Any]):
+    """Test endpoint to verify location data processing"""
+    try:
+        logger.info(f"Testing location data: {user_location}")
+        
+        # Test query that uses location
+        test_query = "What's the weather like here and what crops can I grow?"
+        
+        # Process query with test location
+        result = process_query(test_query, user_location)
+        
+        return {
+            "status": "success",
+            "test_query": test_query,
+            "provided_location": user_location,
+            "processed_location": result.get("location", {}),
+            "weather_data": result.get("weather", {}),
+            "crop_suggestions": result.get("crop_suggestions", []),
+            "answer_preview": result.get("answer", "")[:100] + "..." if result.get("answer") else "No answer"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error testing location: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
         }

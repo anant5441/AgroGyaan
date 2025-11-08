@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageCircle, X, Send, Bot, User, Trash2, Image, XCircle, Volume2, VolumeX } from "lucide-react";
-// const BASE_URL = "http://localhost:8000"; // Update with your backend URL
-const BASE_URL = "https://agrogyaan-b-ai.onrender.com"
+import { MessageCircle, X, Send, Bot, User, Trash2, Image, XCircle, Volume2, VolumeX, MapPin, Navigation } from "lucide-react";
+
+const BASE_URL = "https://agrogyaan-b-ai.onrender.com";
+//const BASE_URL="http://localhost:8000";
+//Api key is in environment variable
+const GEOAPIFY_API_KEY = import.meta.env.VITE_GEOAPIFY_API_KEY;
 
 export function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,11 +25,19 @@ export function AIAssistant() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [currentlyPlayingAudio, setCurrentlyPlayingAudio] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationMethod, setLocationMethod] = useState(null); // 'browser' or 'ip'
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const audioRef = useRef(null);
+
+  // Get user location when component mounts
+  useEffect(() => {
+    getUserLocation();
+  }, []);
 
   // Auto scroll when messages update and focus input when opened
   useEffect(() => {
@@ -48,6 +59,160 @@ export function AIAssistant() {
       }
     };
   }, []);
+
+  const getLocationViaIP = async () => {
+    try {
+      if (!GEOAPIFY_API_KEY || GEOAPIFY_API_KEY === "YOUR_GEOAPIFY_API_KEY") {
+        throw new Error("Geoapify API key not configured");
+      }
+
+      const response = await fetch(
+        `https://api.geoapify.com/v1/ipinfo?apiKey=${GEOAPIFY_API_KEY}`,
+        {
+          method: 'GET',
+          timeout: 10000
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data && data.city && data.country) {
+        return {
+          latitude: data.location?.latitude,
+          longitude: data.location?.longitude,
+          city: data.city.name || "Unknown",
+          country: data.country.name || "Unknown",
+          countryCode: data.country.iso_code || "Unknown",
+          state: data.state?.name || "Unknown",
+          detected_via: "ip_geolocation",
+          accuracy: "low"
+        };
+      } else {
+        throw new Error("Invalid location data from IP");
+      }
+    } catch (error) {
+      console.error("Error getting location via IP:", error);
+      throw error;
+    }
+  };
+
+  const getUserLocation = async () => {
+    setIsGettingLocation(true);
+    setLocationMethod(null);
+
+    // First try browser geolocation (most accurate)
+    if (navigator.geolocation) {
+      try {
+        const browserLocation = await getBrowserLocation();
+        if (browserLocation && !browserLocation.error) {
+          setUserLocation(browserLocation);
+          setLocationMethod('browser');
+          setIsGettingLocation(false);
+          return;
+        }
+      } catch (error) {
+        console.log("Browser geolocation failed, trying IP-based...");
+      }
+    }
+
+    // Fallback to IP-based geolocation
+    try {
+      const ipLocation = await getLocationViaIP();
+      setUserLocation(ipLocation);
+      setLocationMethod('ip');
+    } catch (error) {
+      console.error("IP-based geolocation also failed:", error);
+      setUserLocation({
+        error: "Could not determine your location",
+        detected_via: "error"
+      });
+      setLocationMethod('error');
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
+
+  const getBrowserLocation = () => {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            
+            // Reverse geocoding to get city name
+            const response = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            
+            if (response.ok) {
+              const locationData = await response.json();
+              resolve({
+                latitude: latitude,
+                longitude: longitude,
+                city: locationData.city || locationData.locality || "Unknown",
+                country: locationData.countryName || "Unknown",
+                countryCode: locationData.countryCode || "Unknown",
+                state: locationData.principalSubdivision || "Unknown",
+                detected_via: "browser_geolocation",
+                accuracy: "high"
+              });
+            } else {
+              // Fallback: just use coordinates
+              resolve({
+                latitude: latitude,
+                longitude: longitude,
+                city: "Unknown",
+                country: "Unknown",
+                state: "Unknown",
+                detected_via: "browser_geolocation",
+                accuracy: "high"
+              });
+            }
+          } catch (error) {
+            console.error("Error getting location details:", error);
+            // Fallback: just use coordinates
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              city: "Unknown",
+              country: "Unknown",
+              state: "Unknown",
+              detected_via: "browser_geolocation",
+              accuracy: "high"
+            });
+          }
+        },
+        (error) => {
+          let errorMessage = "Location access denied or unavailable";
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Location access denied by user";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information unavailable";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "Location request timed out";
+              break;
+            default:
+              errorMessage = "Unknown location error";
+              break;
+          }
+          
+          reject(new Error(errorMessage));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000, // Shorter timeout for faster fallback
+          maximumAge: 600000 // 10 minutes
+        }
+      );
+    });
+  };
 
   const handleImageSelect = (event) => {
     const file = event.target.files[0];
@@ -219,6 +384,12 @@ export function AIAssistant() {
       let body;
       let headers = {};
 
+      // Prepare request body with location data
+      const requestData = {
+        query: message,
+        user_location: userLocation && !userLocation.error ? userLocation : null
+      };
+
       if (selectedImage) {
         // Use image endpoint with FormData
         endpoint = BASE_URL + "/api/chat-with-image";
@@ -229,12 +400,17 @@ export function AIAssistant() {
         }
         formData.append("image", selectedImage);
         
+        // Add location data as JSON string for FormData
+        if (userLocation && !userLocation.error) {
+          formData.append("user_location", JSON.stringify(userLocation));
+        }
+        
         body = formData;
         // Don't set Content-Type header for FormData - browser will set it with boundary
       } else {
         // Use text-only endpoint with JSON
         endpoint = BASE_URL + "/api/chat";
-        body = JSON.stringify({ query: message });
+        body = JSON.stringify(requestData);
         headers = {
           "Content-Type": "application/json",
         };
@@ -365,6 +541,59 @@ export function AIAssistant() {
     }
   };
 
+  // Location Status Component
+  const LocationStatus = () => {
+    if (isGettingLocation) {
+      return (
+        <div className="flex items-center text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded border border-yellow-200">
+          <Navigation className="h-3 w-3 mr-1 animate-spin" />
+          <span>Detecting location...</span>
+        </div>
+      );
+    }
+
+    if (userLocation && !userLocation.error) {
+      const accuracyIcon = locationMethod === 'browser' ? 
+        <MapPin className="h-3 w-3 mr-1" /> : 
+        <Navigation className="h-3 w-3 mr-1" />;
+      
+      const accuracyText = locationMethod === 'browser' ? 'High Accuracy' : 'Approximate Location';
+      
+      return (
+        <div 
+          className="flex items-center text-xs text-green-700 bg-green-50 px-2 py-1 rounded border border-green-200 cursor-help group relative" 
+          title={`${accuracyText} • Lat: ${userLocation.latitude?.toFixed(4)}, Lng: ${userLocation.longitude?.toFixed(4)}`}
+        >
+          {accuracyIcon}
+          <span>
+            {userLocation.city !== "Unknown" ? 
+              `${userLocation.city}${userLocation.state && userLocation.state !== "Unknown" ? `, ${userLocation.state}` : ''}` : 
+              "Location available"}
+          </span>
+          
+          {/* Accuracy badge */}
+          <span className={`ml-1 px-1 rounded text-xs ${
+            locationMethod === 'browser' 
+              ? 'bg-green-200 text-green-800' 
+              : 'bg-blue-200 text-blue-800'
+          }`}>
+            {locationMethod === 'browser' ? 'GPS' : 'IP'}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        className="flex items-center text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-200 cursor-help" 
+        title="Location needed for weather and crop recommendations"
+      >
+        <MapPin className="h-3 w-3 mr-1" />
+        <span>No location</span>
+      </div>
+    );
+  };
+
   // Enhanced Message component with audio controls
   const Message = ({ msg }) => {
     const isPlaying = currentlyPlayingAudio === msg.id;
@@ -488,7 +717,6 @@ export function AIAssistant() {
 
   return (
     <>
-
       {/* Floating Chat Button */}
       <button
         onClick={handleToggle}
@@ -508,34 +736,62 @@ export function AIAssistant() {
           {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
         </div>
       </button>
+
       {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-80 sm:w-96 h-96 sm:h-[550px] flex flex-col shadow-xl z-50 rounded-xl border border-green-200 overflow-hidden bg-white">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-green-600 to-green-700 text-white flex flex-row justify-between items-center px-4 py-3">
-            <div className="flex items-center space-x-2">
-              <Bot className="h-5 w-5" />
-              <span className="font-semibold">AI Farming Assistant</span>
+          {/* Header with Location Status */}
+          <div className="bg-gradient-to-r from-green-600 to-green-700 text-white flex flex-col px-4 py-3">
+            <div className="flex flex-row justify-between items-center mb-2">
+              <div className="flex items-center space-x-2">
+                <Bot className="h-5 w-5" />
+                <span className="font-semibold">AI Farming Assistant</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={clearConversation}
+                  className="p-1 rounded-md hover:bg-green-500 transition-colors"
+                  title="Clear conversation"
+                  aria-label="Clear conversation"
+                  disabled={isLoading}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <button 
+                  onClick={handleClose}
+                  className="p-1 rounded-md hover:bg-green-500 transition-colors"
+                  title="Close chat"
+                  aria-label="Close chat"
+                  disabled={isLoading}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={clearConversation}
-                className="p-1 rounded-md hover:bg-green-500 transition-colors"
-                title="Clear conversation"
-                aria-label="Clear conversation"
-                disabled={isLoading}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-              <button 
-                onClick={handleClose}
-                className="p-1 rounded-md hover:bg-green-500 transition-colors"
-                title="Close chat"
-                aria-label="Close chat"
-                disabled={isLoading}
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div className="flex justify-between items-center">
+              <LocationStatus />
+              <div className="flex items-center space-x-2">
+                {(userLocation?.error || !userLocation) && (
+                  <button
+                    onClick={getUserLocation}
+                    className="text-xs bg-white text-green-600 px-2 py-1 rounded hover:bg-green-50 transition-colors border border-green-200 flex items-center"
+                    disabled={isGettingLocation}
+                  >
+                    <Navigation className="h-3 w-3 mr-1" />
+                    {isGettingLocation ? "Locating..." : "Get Location"}
+                  </button>
+                )}
+                {userLocation && !userLocation.error && (
+                  <button
+                    onClick={getUserLocation}
+                    className="text-xs bg-white text-green-600 px-2 py-1 rounded hover:bg-green-50 transition-colors border border-green-200"
+                    disabled={isGettingLocation}
+                    title="Refresh location"
+                  >
+                    <Navigation className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -631,16 +887,11 @@ export function AIAssistant() {
                     shadow-inner transition-all duration-300
                     focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-400
                     focus:from-green-100 focus:to-white
-
-                    dark:bg-gradient-to-r dark:from-gray-800 dark:to-gray-900
-                    dark:text-gray-100 dark:placeholder:text-gray-400
-                    dark:border-green-700 dark:focus:ring-green-400 dark:focus:border-green-500
+                    disabled:bg-gray-100 disabled:cursor-not-allowed
                   "
                   aria-label="Type your message"
                   disabled={isLoading}
                 />
-
-
 
                 {/* Send Button */}
                 <button
@@ -652,11 +903,26 @@ export function AIAssistant() {
                   <Send className="h-4 w-4" />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2 text-center">
+              
+              {/* Location information tip */}
+              {userLocation && !userLocation.error && (
+                <p className="text-xs text-green-600 mt-2 text-center">
+                  {locationMethod === 'browser' ? (
+                    <>📍 GPS Location - Accurate weather and crop advice for your area</>
+                  ) : (
+                    <>🌐 IP Location - Approximate location for general recommendations</>
+                  )}
+                </p>
+              )}
+              
+              {userLocation && userLocation.error && (
+                <p className="text-xs text-amber-600 mt-2 text-center">
+                  ⚠️ Location unavailable - Ask about specific locations for accurate weather info
+                </p>
+              )}
+              
+              <p className="text-xs text-gray-500 mt-1 text-center">
                 {selectedImage ? "Image ready for analysis • Press Enter to send" : "Press Enter to send • Available 24/7"}
-              </p>
-              <p className="text-xs text-green-600 mt-1 text-center">
-                💡 Tip: Ask for "audio" or "speech" to hear responses in multiple languages
               </p>
             </div>
           </div>

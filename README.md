@@ -142,12 +142,14 @@ Specialized marketplace for agricultural equipment and machinery:
 
 ### AI-Powered Services (Backend-AI):
 - **🤖 Intelligent Chat Assistant**: 
-  - Multi-model AI support (Groq Llama 3.1 + Google Gemini)
-  - RAG-based knowledge retrieval using FAISS vector database
+  - Multi-model AI support (Groq Llama 3.1 + Google Gemini 2.5 Pro)
+  - RAG-based knowledge retrieval using Pinecone vector database
   - Location-aware responses with automatic IP detection
   - Utilizes current location's weather data for context-aware answers
   - Seasonal agricultural intelligence and crop suggestions
   - 24/7 availability with response caching for performance
+  - Image-based disease detection using Gemini Vision
+  - Text-to-Speech audio generation with multi-language support
 
 - **📊 Advanced Market Price API**:
   - Real-time agricultural commodity prices from data.gov.in
@@ -223,6 +225,7 @@ Specialized marketplace for agricultural equipment and machinery:
 - **Database**: MongoDB 6.19+ with Mongoose 8.18+ ODM
 - **Authentication**: JWT (JSON Web Tokens) with bcryptjs 3.0.2
 - **API Architecture**: RESTful APIs with CORS support
+- **Connection Management**: User-to-user connection utilities for chat rooms
 - **Environment**: ES Modules with dotenv 17.2+
 
 #### Farmer Authentication Service (Backend-Farmer-Auth):
@@ -236,17 +239,20 @@ Specialized marketplace for agricultural equipment and machinery:
 - **Framework**: FastAPI (Python)
 - **AI Models**: 
   - **Primary LLM**: Groq (Llama 3.1-8b-instant)
-  - **Fallback LLM**: Google Gemini Pro
-  - **Embeddings**: HuggingFace sentence-transformers
-- **Vector Database**: FAISS for RAG implementation
-- **Caching**: 24-hour response caching system
-- **Document Processing**: Optimized text chunking and similarity search
+  - **Fallback LLM**: Google Gemini 2.5 Pro
+  - **Embeddings**: Google Generative AI (text-embedding-004)
+  - **Image Analysis**: Google Gemini Vision API
+- **Vector Database**: Pinecone for scalable RAG implementation
+- **Caching**: 24-hour response caching system with MD5 hashing
+- **Audio Services**: Google Text-to-Speech (gTTS) with multi-language support
+- **Document Processing**: Optimized text chunking (1000 chars, 200 overlap) and similarity search
 
 ### Database & Storage:
 - **Primary Database**: MongoDB with Mongoose ODM
-- **Vector Storage**: FAISS indices for document similarity
+- **Vector Storage**: Pinecone cloud vector database for document similarity
 - **File Storage**: Local cache for ML models and responses
 - **Model Storage**: Pickle files for trained ML models
+- **User Connections**: MongoDB rooms_id arrays for chat room management
 
 ### AI/ML & Analytics:
 - **Machine Learning Framework**: Python with Scikit-learn
@@ -256,7 +262,9 @@ Specialized marketplace for agricultural equipment and machinery:
   - Soil nutrient (NPK) prediction
 - **Data Processing**: Pandas, NumPy for data manipulation
 - **Model Training**: Jupyter notebooks for model development
-- **RAG System**: FAISS-based document retrieval with cosine similarity
+- **RAG System**: Pinecone-based document retrieval with cosine similarity (0.5 threshold)
+- **Audio Generation**: Text-to-Speech conversion with 12+ language support
+- **Image Processing**: Gemini Vision API for crop disease detection and plant identification
 
 ### External APIs & Integrations:
 - **Weather Data**: OpenWeatherMap API for real-time weather
@@ -264,8 +272,10 @@ Specialized marketplace for agricultural equipment and machinery:
 - **Market Data**: Data.gov.in API for Indian agricultural prices
 - **AI Services**: 
   - Groq API for Llama 3.1 model
-  - Google Gemini API for enhanced responses
-  - HuggingFace for embeddings
+  - Google Gemini API for enhanced responses and image analysis
+  - Google Generative AI for embeddings (text-embedding-004)
+  - Pinecone API for vector database operations
+  - Google Text-to-Speech (gTTS) for audio generation
 
 ### Development & Build Tools:
 - **Frontend Build**: Vite with ESLint 9.33+
@@ -322,6 +332,75 @@ Specialized marketplace for agricultural equipment and machinery:
 - **Multilingual Support**: Customer service in regional languages
 
 ## 📁 Project Architecture
+
+### System Architecture Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         FRONTEND LAYER                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Farmer App  │  Buyer App  │  Equip-Seller App                  │
+│  (React 19)  │  (React 19) │  (React 19)                        │
+└──────┬────────┬────────────┬────────────────────────────────────┘
+       │        │            │
+       │        │            │
+       ▼        ▼            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      BACKEND API LAYER                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────────────┐    ┌──────────────────────┐           │
+│  │   Backend-Exp        │    │   Backend-AI         │           │
+│  │   (Express.js)       │    │   (FastAPI)          │           │
+│  │                      │    │                      │           │
+│  │  • Auth & Users      │    │  • AI Chat           │           │
+│  │  • Crop Listings     │    │  • Image Analysis    │           │
+│  │  • Connections       │    │  • Audio TTS         │           │
+│  │  • Chat Rooms        │    │  • Market Prices     │           │
+│  │                      │    │  • Crop Prediction   │           │
+│  └──────────┬───────────┘    └──────────┬───────────┘           │
+│             │                          │                        │
+└─────────────┼──────────────────────────┼────────────────────────┘
+              │                          │
+              ▼                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      DATA & STORAGE LAYER                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────────────┐    ┌──────────────────────┐           │
+│  │   MongoDB            │    │   Pinecone           │           │
+│  │   (Primary DB)       │    │   (Vector DB)        │           │
+│  │                      │    │                      │           │
+│  │  • Users             │    │  • Document          │           │
+│  │  • Listings          │    │    Embeddings        │           │
+│  │  • Orders            │    │  • RAG Search        │           │
+│  │  • Chat Rooms        │    │                      │           │
+│  └──────────────────────┘    └──────────────────────┘           │
+│                                                                 │
+│  ┌──────────────────────┐    ┌──────────────────────┐           │
+│  │   ML Models          │    │   Cache Storage      │           │
+│  │   (Pickle Files)     │    │   (Local Files)      │           │
+│  │                      │    │                      │           │
+│  │  • Crop Prediction   │    │  • Response Cache    │           │
+│  │  • NPK Analysis      │    │  • Model Cache       │           │
+│  └──────────────────────┘    └──────────────────────┘           │
+└─────────────────────────────────────────────────────────────────┘
+              │                          │
+              ▼                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    EXTERNAL SERVICES LAYER                      │
+├─────────────────────────────────────────────────────────────────┤
+│  • Groq API (Llama 3.1)       • Google Gemini API               │
+│  • Google Generative AI        • Pinecone API                   │
+│  • OpenWeatherMap API          • Geoapify API                   │
+│  • Data.gov.in API            • Google TTS (gTTS)               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Deployment URLs
+
+- **Backend-AI**: https://agrogyaan-b-ai.onrender.com/
+- **Backend-Exp**: https://backend-exp-yul4.onrender.com
 
 ### Current Folder Structure
 ```
@@ -409,8 +488,9 @@ AgroGyaan/
 │   │   ├── main_chatbot/               # AI Chatbot services
 │   │   │   ├── chat_router.py          # Chat API endpoints
 │   │   │   ├── chat.py                 # Core chat logic & AI models
+│   │   │   ├── image_processor.py      # Image analysis & audio generation
 │   │   │   ├── data/                   # Training data
-│   │   │   └── vector_store/           # FAISS vector database
+│   │   │   └── cache/                  # Response cache storage
 │   │   ├── crop_recommendation_router.py # Crop recommendation API
 │   │   ├── marketprice_router.py       # Market price data API
 │   │   └── organicguide_router.py      # Organic farming guide API
@@ -419,8 +499,6 @@ AgroGyaan/
 │   │   │   └── crop_service.py         # ML model service
 │   │   └── Farming_Guide/              # Farming guidance service
 │   │       └── guide.py                # Guide generation logic
-│   ├── vector_store/                   # Vector database storage
-│   │   └── chat_db_faiss/              # FAISS index files
 │   ├── cache/                          # Response caching
 │   └── README.md                       # AI backend documentation
 │
@@ -429,7 +507,7 @@ AgroGyaan/
 │   ├── config/                         # Configuration files
 │   │   └── database.js                 # MongoDB connection
 │   ├── models/                         # Database models
-│   │   ├── User.js                     # User model
+│   │   ├── User.js                     # User model (with rooms_id array)
 │   │   ├── Farmer.js                   # Farmer profile model
 │   │   ├── Buyer.js                    # Buyer profile model
 │   │   ├── Supplier.js                 # Supplier profile model
@@ -444,11 +522,13 @@ AgroGyaan/
 │   │   └── Payment.js                  # Payment model
 │   ├── routes/                         # API routes
 │   │   ├── auth.js                     # Authentication routes
-│   │   └── cropListings.js             # Crop listing routes
+│   │   ├── cropListings.js             # Crop listing routes
+│   │   └── users.js                    # User management & connection routes
 │   ├── controllers/                    # Route controllers
 │   │   ├── authController.js           # Authentication logic
 │   │   ├── cropListingController.js    # Crop listing management
-│   │   └── userController.js           # User management
+│   │   ├── userController.js           # User management
+│   │   └── connectionController.js    # Connection & chat room management
 │   ├── middleware/                     # Express middleware
 │   │   ├── authMiddleware.js           # JWT authentication
 │   │   ├── errorMiddleware.js          # Error handling

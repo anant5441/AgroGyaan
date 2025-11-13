@@ -22,13 +22,14 @@ import sys  # System-specific parameters
 import logging  # Logging functionality
 import requests  # HTTP library for API calls
 import json  # JSON data handling
-from datetime import datetime  # Date and time handling
+from datetime import datetime,timedelta   # Date and time handling
 import hashlib  # Hash functions for caching
 import pickle  # Object serialization for caching
 from functools import lru_cache  # Least Recently Used cache decorator
 import re  # Regular expressions
 import time  # Time-related functions
 import threading  # Threading support
+from threading import Thread  # Thread class for concurrent execution
 import signal  # Signal handling for graceful shutdown
 
 # Third-party libraries
@@ -36,6 +37,13 @@ import google.generativeai as genai  # Google's Generative AI
 from bs4 import BeautifulSoup  # HTML/XML parsing
 import psutil  # System and process utilities
 from prometheus_client import start_http_server, Counter, Histogram, Gauge  # Metrics collection
+
+# Async imports
+import asyncio
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from queue import Queue
+from aiohttp import TCPConnector
 
 # ===== PRODUCTION CONFIGURATION =====
 class Config:
@@ -49,7 +57,7 @@ class Config:
     WEATHER_API_RATE_LIMIT = 60  # Maximum weather API calls per minute
     
     # Performance settings - Optimizes system performance and resource usage
-    MAX_CONCURRENT_QUERIES = 10  # Maximum simultaneous queries to prevent overload
+    MAX_CONCURRENT_QUERIES = 20  # Increased for thread pool
     CACHE_SIZE_MB = 100  # Maximum cache size in megabytes
     REQUEST_TIMEOUT = 30  # Timeout for external API requests in seconds
     MAX_DOCUMENT_SIZE_MB = 50  # Maximum size for uploaded documents
@@ -62,13 +70,20 @@ class Config:
     ALLOWED_FILE_TYPES = ['.pdf']  # Only PDF files are allowed for upload
     MAX_FILE_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB maximum file size
 
+    # Async settings
+    ASYNC_WORKERS = 10
+    BATCH_SIZE = 5
+
 # ===== PROMETHEUS METRICS =====
 # Metrics for monitoring system performance and health
-QUERY_COUNTER = Counter('agro_assistant_queries_total', 'Total number of queries', ['llm_source', 'status'])  # Tracks query count by LLM and status
-QUERY_DURATION = Histogram('agro_assistant_query_duration_seconds', 'Query processing time')  # Measures query processing time
-ACTIVE_QUERIES = Gauge('agro_assistant_active_queries', 'Number of active queries')  # Current number of active queries
-CACHE_HITS = Counter('agro_assistant_cache_hits_total', 'Cache hit counter')  # Tracks cache hit frequency
-API_ERRORS = Counter('agro_assistant_api_errors_total', 'API error counter', ['api_name'])  # Tracks API errors by service
+QUERY_COUNTER = Counter('agro_assistant_queries_total', 'Total number of queries', ['llm_source', 'status'])
+QUERY_DURATION = Histogram('agro_assistant_query_duration_seconds', 'Query processing time')
+ACTIVE_QUERIES = Gauge('agro_assistant_active_queries', 'Number of active queries')
+CACHE_HITS = Counter('agro_assistant_cache_hits_total', 'Cache hit counter')
+API_ERRORS = Counter('agro_assistant_api_errors_total', 'API error counter', ['api_name'])
+ASYNC_QUERY_DURATION = Histogram('agro_async_query_duration_seconds', 'Async query processing time')
+BATCH_PROCESSING_TIME = Histogram('agro_batch_processing_seconds', 'Batch processing time')
+CONCURRENT_QUERIES = Gauge('agro_concurrent_queries', 'Number of concurrent queries being processed')
 
 # ===== RATE LIMITING =====
 class RateLimiter:
@@ -99,11 +114,20 @@ weather_limiter = RateLimiter(Config.WEATHER_API_RATE_LIMIT)
 # ===== PRODUCTION LOGGING =====
 def setup_production_logging():
     """Setup structured logging for production"""
+    import logging
+    import sys
+    
+    # Fix encoding for Windows
+    if sys.platform == "win32":
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler('agro_assistant.log'),
+            logging.FileHandler('agro_assistant.log', encoding='utf-8'),
             logging.StreamHandler(sys.stdout)
         ]
     )
@@ -123,6 +147,661 @@ GROQ_MODEL = "llama-3.1-8b-instant"
 COSINE_THRESHOLD = 0.5
 CACHE_EXPIRY_HOURS = 24
 
+# ===== SCIENTIFIC QUERY CLASSIFICATION =====
+def is_complex_scientific_query(query):
+    """Detect complex scientific questions with improved accuracy"""
+    scientific_indicators = [
+        # Molecular and biochemical terms
+        "molecular-level", "molecular", "biochemical", "mechanism", "pathway",
+        "gene expression", "protein", "enzyme", "metabolic", "biosynthesis",
+        "transcription", "translation", "receptor", "signaling pathway",
+        
+        # Research methodology
+        "peer-reviewed", "clinical trial", "in vitro", "in vivo", "study",
+        "research", "experiment", "laboratory", "clinical study",
+        
+        # Advanced agricultural science
+        "systemic acquired resistance", "salicylic acid", "jasmonic acid",
+        "ethylene signaling", "phytohormones", "lignin deposition",
+        "cell walls", "callose deposition", "phenylalanine ammonia-lyase",
+        "NPR1 protein", "PR gene", "CAD gene", "CCR gene",
+        
+        # Chemical compounds and concentrations
+        "concentration", "millimolar", "mM", "application rate",
+        "foliar application", "soil drench", "treatment",
+        
+        # Specific scientific processes
+        "synergistic effect", "upregulates", "downregulates", "activates",
+        "inhibits", "enhances", "induces", "potentiates"
+    ]
+    
+    query_lower = query.lower()
+    
+    # Check for scientific terms
+    scientific_terms_found = [indicator for indicator in scientific_indicators if indicator in query_lower]
+    scientific_score = len(scientific_terms_found)
+    
+    # Additional scoring based on query complexity
+    complexity_indicators = [
+        "how does", "what is the mechanism", "explain the process",
+        "molecular basis", "biochemical pathway", "scientific basis"
+    ]
+    
+    complexity_score = sum(1 for indicator in complexity_indicators if indicator in query_lower)
+    
+    # Check for research paper style queries
+    research_style_indicators = [
+        "optimal concentration", "effective dosage", "treatment protocol",
+        "experimental results", "research shows", "studies indicate"
+    ]
+    
+    research_score = sum(1 for indicator in research_style_indicators if indicator in query_lower)
+    
+    total_score = scientific_score + (complexity_score * 2) + (research_score * 1.5)
+    
+    logger.info(f"Scientific query detection - Query: '{query}', Score: {total_score}, Terms: {scientific_terms_found}")
+    
+    return total_score >= 3  # Lowered threshold for better detection
+
+def handle_scientific_query(query):
+    """Handle complex scientific questions with specialized approach"""
+    try:
+        logger.info(f"Processing scientific query: {query}")
+        
+        # Use specialized retrieval for scientific queries
+        scientific_docs = retrieve_scientific_documents(query)
+        
+        if not scientific_docs:
+            return {
+                "query": query,
+                "answer": "🔬 This appears to be a specialized scientific question requiring peer-reviewed research data. My current knowledge base focuses on practical farming advice rather than detailed molecular biology research. For such specific biochemical questions, I'd recommend consulting agricultural research databases or university extension services.",
+                "llm_source": "Scientific Query Handler",
+                "sources": [],
+                "note": "Complex scientific query beyond current scope"
+            }
+        
+        # Use specialized prompt for scientific answers
+        return generate_scientific_answer(query, scientific_docs)
+        
+    except Exception as e:
+        logger.error(f"Scientific query handling failed: {str(e)}")
+        return {"error": "Unable to process complex scientific question"}
+
+def retrieve_scientific_documents(query):
+    """Retrieve documents with specialized scientific context"""
+    try:
+        vector_store = get_vector_store()
+        if not vector_store:
+            return []
+        
+        # Broader search for scientific queries
+        docs_and_scores = vector_store.similarity_search_with_score(
+            query, 
+            k=8  # Get more documents for scientific queries
+        )
+        
+        # Lower threshold for scientific queries to get more context
+        filtered_docs = [doc for doc, score in docs_and_scores if score >= 0.3]
+        logger.info(f"Retrieved {len(filtered_docs)} scientific documents")
+        return filtered_docs
+        
+    except Exception as e:
+        logger.error(f"Error retrieving scientific documents: {str(e)}")
+        return []
+
+def generate_scientific_answer(query, scientific_docs):
+    """Generate detailed scientific answer using specialized prompt"""
+    try:
+        gemini_limiter.acquire()
+        model = get_gemini_model()
+        
+        context_text = ""
+        if scientific_docs:
+            context_text = "\n\n".join([doc.page_content[:800] for doc in scientific_docs[:3]])
+        
+        scientific_prompt = f"""
+        You are an expert agricultural scientist. Provide detailed, research-based answers for complex scientific questions.
+
+        CONTEXT FROM RESEARCH DOCUMENTS:
+        {context_text}
+
+        SCIENTIFIC QUESTION: {query}
+
+        FORMAT YOUR ANSWER AS:
+
+        MAIN TITLE: [Brief descriptive title]
+
+        TIMING & CONCENTRATION:
+        • [Specific timing details]
+        • [Concentration/dosage information]
+        • [Application methods]
+
+        MECHANISTIC DETAILS:
+        • [Molecular mechanisms]
+        • [Biochemical pathways]
+        • [Cellular processes]
+
+        INTERACTIONS & SYNERGIES:
+        • [Combination effects]
+        • [Synergistic relationships]
+        • [Enhanced outcomes]
+
+        RESEARCH SUPPORT:
+        • [Key findings from studies]
+        • [Experimental results]
+        • [Research validation]
+
+        INSTRUCTIONS:
+        1. Provide specific concentrations, timings, and methods
+        2. Explain molecular mechanisms in clear terms
+        3. Include research-backed evidence
+        4. Structure answer with clear sections
+        5. Be precise and technical but understandable
+        6. Focus on actionable scientific insights
+        7. If context is limited, provide general scientific principles
+
+        SCIENTIFIC ANSWER:
+        """
+        
+        response = model.generate_content(scientific_prompt)
+        answer = response.text.strip()
+        
+        # Ensure answer is properly formatted
+        if not any(char in answer for char in ['•', '-', '*', ':']):
+            # Add basic formatting if missing
+            answer = f"OPTIMAL APPLICATION & MECHANISM\n\n{answer}"
+        
+        return {
+            "query": query,
+            "answer": answer,
+            "llm_source": "Gemini (Scientific Mode)",
+            "sources": [f"Research Document: {doc.metadata.get('source', 'Unknown')}" for doc in scientific_docs],
+            "note": "Scientific research-based response"
+        }
+        
+    except Exception as e:
+        logger.error(f"Scientific answer generation failed: {str(e)}")
+        return {
+            "query": query,
+            "answer": "🔬 I encountered difficulty processing this complex scientific question. For detailed molecular biology and biochemical research queries, specialized agricultural research databases would provide more comprehensive information.",
+            "llm_source": "Scientific Fallback",
+            "sources": [],
+            "error": str(e)
+        }
+
+# ===== ASYNC CACHE MANAGER =====
+class AsyncCacheManager:
+    def __init__(self):
+        self.cache = {}
+        self.lock = threading.RLock()  # Re-entrant lock for nested calls
+        self.cleanup_thread = None
+        self.hit_count = 0
+        self.miss_count = 0
+    
+    def get_with_async_refresh(self, key, fetch_function, *args, **kwargs):
+        """Get from cache, refresh in background if stale"""
+        with self.lock:
+            if key in self.cache:
+                cache_entry = self.cache[key]
+                
+                # Return immediately if fresh
+                if datetime.now() - cache_entry['timestamp'] < timedelta(minutes=5):
+                    self.hit_count += 1
+                    return cache_entry['data']
+                
+                # Data is stale but return it while refreshing in background
+                self.hit_count += 1
+                if not cache_entry.get('refreshing', False):
+                    cache_entry['refreshing'] = True
+                    threading.Thread(
+                        target=self._refresh_in_background,
+                        args=(key, fetch_function, args, kwargs),
+                        daemon=True
+                    ).start()
+                return cache_entry['data']
+            
+            # Cache miss - fetch synchronously
+            self.miss_count += 1
+            data = fetch_function(*args, **kwargs)
+            self.cache[key] = {
+                'data': data,
+                'timestamp': datetime.now(),
+                'refreshing': False
+            }
+            return data
+    
+    def _refresh_in_background(self, key, fetch_function, args, kwargs):
+        """Refresh cache in background"""
+        try:
+            data = fetch_function(*args, **kwargs)
+            with self.lock:
+                self.cache[key] = {
+                    'data': data,
+                    'timestamp': datetime.now(),
+                    'refreshing': False
+                }
+        except Exception as e:
+            logger.error(f"Background cache refresh failed for {key}: {str(e)}")
+            with self.lock:
+                self.cache[key]['refreshing'] = False
+
+# ===== QUERY PROCESSOR WITH THREAD POOL =====
+class QueryProcessor:
+    def __init__(self):
+        self.thread_pool = ThreadPoolExecutor(
+            max_workers=Config.MAX_CONCURRENT_QUERIES,
+            thread_name_prefix="query_worker"
+        )
+        self.session = None
+        self.cache_manager = AsyncCacheManager()
+    
+    async def initialize(self):
+        """Initialize async session"""
+        self.session = aiohttp.ClientSession()
+    
+    def process_queries_concurrently(self, queries_with_locations):
+        """Process multiple queries concurrently"""
+        futures = []
+        for query, location_data in queries_with_locations:
+            future = self.thread_pool.submit(self._process_single_query, query, location_data)
+            futures.append(future)
+        
+        results = []
+        for future in as_completed(futures):
+            try:
+                result = future.result(timeout=Config.REQUEST_TIMEOUT)
+                results.append(result)
+            except Exception as e:
+                logger.error(f"Query processing failed: {str(e)}")
+                results.append({"error": str(e)})
+        
+        return results
+    
+    def _process_single_query(self, query, location_data):
+        """Process single query (existing logic)"""
+        return process_query(query, location_data)
+
+# ===== PARALLEL DOCUMENT RETRIEVER =====
+class ParallelDocumentRetriever:
+    def __init__(self):
+        self.document_queue = Queue()
+        self.vector_store = None  # Initialize as None
+    
+    def _ensure_initialized(self):
+        """Ensure vector store is initialized"""
+        if self.vector_store is None:
+            self.vector_store = get_vector_store()
+    
+    def retrieve_documents_parallel(self, queries):
+        """Retrieve documents for multiple queries in parallel"""
+        self._ensure_initialized()  # Ensure initialized before use
+        
+        threads = []
+        results = {}
+        
+        def worker(query):
+            try:
+                docs = self.vector_store.similarity_search_with_score(
+                    query, k=5
+                )
+                filtered_docs = [doc for doc, score in docs if score >= COSINE_THRESHOLD]
+                results[query] = filtered_docs
+            except Exception as e:
+                logger.error(f"Document retrieval failed for {query}: {str(e)}")
+                results[query] = []
+        
+        # Start threads for each query
+        for query in queries:
+            thread = Thread(target=worker, args=(query,))
+            thread.start()
+            threads.append(thread)
+        
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join(timeout=10)  # 10 second timeout
+        
+        return results
+
+# ===== CONNECTION POOLING =====
+class APIConnectionPool:
+    def __init__(self):
+        self.session = None
+        self.connector = None
+    
+    async def __aenter__(self):
+        self.connector = TCPConnector(
+            limit=100,  # Maximum number of concurrent connections
+            limit_per_host=20,  # Maximum per host
+            keepalive_timeout=30
+        )
+        self.session = aiohttp.ClientSession(connector=self.connector)
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.session.close()
+        await self.connector.close()
+    
+    async def make_request(self, url, headers=None, timeout=10):
+        async with self.session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=timeout)) as response:
+            return await response.json()
+
+# ===== BATCH QUERY PROCESSOR =====
+class BatchQueryProcessor:
+    def __init__(self):
+        self.query_processor = QueryProcessor()
+    
+    async def process_batch_async(self, batch_queries):
+        """Process a batch of queries asynchronously"""
+        start_time = time.time()
+        
+        # Group similar queries for batch processing
+        similar_queries = self._group_similar_queries(batch_queries)
+        
+        tasks = []
+        for group in similar_queries:
+            task = asyncio.create_task(self._process_query_group(group))
+            tasks.append(task)
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        BATCH_PROCESSING_TIME.observe(time.time() - start_time)
+        return self._combine_results(results)
+    
+    def _group_similar_queries(self, queries):
+        """Group similar queries to optimize processing"""
+        weather_queries = []
+        crop_queries = []
+        general_queries = []
+        
+        for query, location in queries:
+            query_lower = query.lower()
+            if any(term in query_lower for term in ['weather', 'temperature', 'rain']):
+                weather_queries.append((query, location))
+            elif any(term in query_lower for term in ['crop', 'sow', 'plant', 'grow']):
+                crop_queries.append((query, location))
+            else:
+                general_queries.append((query, location))
+        
+        return [weather_queries, crop_queries, general_queries]
+    
+    async def _process_query_group(self, query_group):
+        """Process a group of similar queries"""
+        if not query_group:
+            return []
+        
+        # Use the same context for similar queries
+        first_query, first_location = query_group[0]
+        context_docs = retrieve_relevant_documents(first_query, COSINE_THRESHOLD)
+        weather_data = await get_weather_data_async(
+            first_location.get('latitude'),
+            first_location.get('longitude'),
+            first_location.get('city', 'Unknown')
+        )
+        
+        results = []
+        for query, location in query_group:
+            result = await self._process_single_query_async(
+                query, location, context_docs, weather_data
+            )
+            results.append(result)
+        
+        return results
+    
+    async def _process_single_query_async(self, query, location_data, context_docs, weather_data):
+        """Process single query asynchronously"""
+        try:
+            season_info = get_seasonal_info(query)
+            agricultural_alerts = get_agricultural_alerts(weather_data, season_info)
+            crop_suggestions = get_crop_suggestions(location_data, weather_data, season_info)
+            
+            # Use existing logic but in async context
+            answer = await generate_groq_answer_async(
+                query, context_docs, location_data, weather_data, season_info, agricultural_alerts, crop_suggestions
+            )
+            
+            return {
+                "query": query,
+                "answer": answer,
+                "llm_source": "Groq (Async)",
+                "sources": [f"Document: {doc.metadata.get('source', 'Unknown')}" for doc in context_docs],
+                "agricultural_alerts": agricultural_alerts,
+                "crop_suggestions": crop_suggestions,
+                "location": location_data,
+                "weather": weather_data,
+                "season": season_info
+            }
+        except Exception as e:
+            logger.error(f"Async query processing failed: {str(e)}")
+            return {"error": str(e)}
+    
+    def _combine_results(self, results):
+        """Combine results from all groups"""
+        combined = []
+        for group_result in results:
+            if isinstance(group_result, list):
+                combined.extend(group_result)
+            elif isinstance(group_result, Exception):
+                logger.error(f"Group processing failed: {group_result}")
+            else:
+                combined.append(group_result)
+        return combined
+
+# ===== FAST AGRO ASSISTANT =====
+class FastAgroAssistant:
+    def __init__(self):
+        self.query_executor = ThreadPoolExecutor(max_workers=Config.MAX_CONCURRENT_QUERIES)
+        self.cache_manager = AsyncCacheManager()
+        self.connection_pool = APIConnectionPool()
+        self.batch_processor = BatchQueryProcessor()
+        self.document_retriever = None  # Initialize as None
+        self._initialized = False
+    
+    async def initialize(self):
+        """Initialize all components"""
+        await self.connection_pool.__aenter__()
+        # Initialize document retriever only when needed
+        self.document_retriever = ParallelDocumentRetriever()
+        self._initialized = True
+    
+    async def shutdown(self):
+        """Cleanup resources"""
+        await self.connection_pool.__aexit__(None, None, None)
+        self.query_executor.shutdown(wait=True)
+        self._initialized = False
+    
+    async def process_queries_fast(self, queries_with_locations):
+        """Fast parallel processing of multiple queries"""
+        # Ensure initialized
+        if not self._initialized:
+            await self.initialize()
+            
+        CONCURRENT_QUERIES.inc()
+        start_time = time.time()
+        
+        try:
+            # Pre-fetch common data
+            common_tasks = [
+                self._prefetch_weather_data(queries_with_locations),
+                self._prefetch_seasonal_info(),
+                self._warmup_vector_store()
+            ]
+            
+            # Execute pre-fetch tasks concurrently
+            await asyncio.gather(*common_tasks, return_exceptions=True)
+            
+            # Process queries in batches
+            batch_results = await self.batch_processor.process_batch_async(queries_with_locations)
+            
+            ASYNC_QUERY_DURATION.observe(time.time() - start_time)
+            return batch_results
+            
+        finally:
+            CONCURRENT_QUERIES.dec()
+    
+    async def _prefetch_weather_data(self, queries_with_locations):
+        """Prefetch weather data for all unique locations"""
+        unique_locations = set()
+        for _, location_data in queries_with_locations:
+            if location_data and 'city' in location_data:
+                unique_locations.add(location_data['city'])
+        
+        weather_tasks = []
+        for city in unique_locations:
+            task = asyncio.create_task(
+                get_weather_data_async(None, None, city)
+            )
+            weather_tasks.append(task)
+        
+        await asyncio.gather(*weather_tasks, return_exceptions=True)
+    
+    async def _prefetch_seasonal_info(self):
+        """Prefetch seasonal information"""
+        # Pre-cache seasonal info
+        get_seasonal_info()
+    
+    async def _warmup_vector_store(self):
+        """Warm up the vector store connection"""
+        # Pre-load common agricultural terms
+        common_terms = ['crop', 'weather', 'soil', 'fertilizer', 'irrigation']
+        for term in common_terms:
+            retrieve_relevant_documents(term, COSINE_THRESHOLD)
+
+# ===== PERFORMANCE MONITOR =====
+class PerformanceMonitor:
+    @staticmethod
+    async def track_async_performance(coroutine, metric):
+        start_time = time.time()
+        CONCURRENT_QUERIES.inc()
+        try:
+            result = await coroutine
+            metric.observe(time.time() - start_time)
+            return result
+        finally:
+            CONCURRENT_QUERIES.dec()
+
+# ===== ASYNC WEATHER API =====
+async def get_weather_data_async(latitude, longitude, location_name):
+    """Async version of weather data fetching"""
+    try:
+        api_key = os.getenv("OPENWEATHER_API_KEY")
+        if not api_key:
+            return create_fallback_weather_data(location_name, "API key missing")
+        
+        async with aiohttp.ClientSession() as session:
+            if location_name and location_name != "Unknown":
+                url = f"https://api.openweathermap.org/data/2.5/weather?q={location_name}&appid={api_key}&units=metric"
+            else:
+                url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={api_key}&units=metric"
+            
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return format_weather_data(data, location_name)
+                else:
+                    return create_fallback_weather_data(location_name, f"HTTP {response.status}")
+    
+    except Exception as e:
+        return create_fallback_weather_data(location_name, str(e))
+
+# ===== ASYNC LLM GENERATION =====
+async def generate_groq_answer_async(query, context_docs, location_data, weather_data, season_info, agricultural_alerts, crop_suggestions):
+    """Async version of Groq answer generation"""
+    try:
+        groq_limiter.acquire()
+        llm = get_groq_llm()
+        
+        context_text = ""
+        if context_docs:
+            context_text = "\n\n".join([doc.page_content[:500] for doc in context_docs[:2]])
+        
+        location_context = ""
+        if location_data and "error" not in location_data:
+            location_context = f"User's Location: {location_data.get('city', 'Unknown')}, {location_data.get('state', 'Unknown')}, {location_data.get('country', 'Unknown')}"
+        
+        weather_context = ""
+        if weather_data and "error" not in weather_data:
+            weather_context = f"Current Weather: {weather_data.get('temperature', 'N/A')}°C, {weather_data.get('conditions', 'N/A')}, Humidity: {weather_data.get('humidity', 'N/A')}%"
+        
+        season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
+
+        if season_info.get('is_summer_focus'):
+            season_context = f"USER IS SPECIFICALLY ASKING ABOUT SUMMER SEASON: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
+        else:
+            season_context = f"Current Season: {season_info.get('current_season', 'N/A')} - {season_info.get('description', '')}"
+
+        agricultural_context = ""
+        if agricultural_alerts:
+            agricultural_context = f"Agricultural Alerts: {', '.join(agricultural_alerts)}"
+        
+        crop_context = ""
+        if crop_suggestions:
+            crop_context = f"Crop Suggestions: {', '.join(crop_suggestions)}"
+        
+        prompt_template = PromptTemplate(
+            input_variables=["query", "context", "location", "weather", "season", "alerts", "crops"],
+            template="""
+            You are an expert agricultural assistant. Provide concise, practical answers (max 150 words).
+
+            CONTEXT FROM DOCUMENTS:
+            {context}
+
+            ADDITIONAL INFORMATION:
+            {location}
+            {weather}
+            {season}
+            {alerts}
+            {crops}
+
+            QUESTION: {query}
+
+            INSTRUCTIONS:
+            1. Answer based on the context when possible
+            2. Incorporate location, weather, and seasonal information
+            3. Be concise and practical (under 150 words)
+            4. Focus on actionable advice
+            5. If context doesn't fully answer, provide general agricultural advice
+            6. For crop recommendations, suggest specific crops based on location, weather and season
+            7. Always mention the location and weather conditions in your response
+            8. Include relevant agricultural alerts and crop suggestions if available
+            9. Ensure the answer is complete and doesn't end abruptly
+            10. DO NOT mention "Document information" or "Based on documents" in your answer
+            11. Just provide the answer naturally without referencing the source documents
+
+            ANSWER:
+            """
+        )
+        
+        prompt = prompt_template.format(
+            query=query,
+            context=context_text,
+            location=location_context,
+            weather=weather_context,
+            season=season_context,
+            alerts=agricultural_context,
+            crops=crop_context
+        )
+        
+        # Note: Groq doesn't have native async support, so we use thread pool
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, 
+            lambda: llm.invoke(prompt)
+        )
+        answer = response.content.strip()
+        
+        answer = remove_redundancies(answer)
+        answer = truncate_answer(answer, 150)
+        
+        return answer
+        
+    except Exception as e:
+        logger.error(f"Groq API async error: {str(e)}")
+        API_ERRORS.labels(api_name='groq').inc()
+        raise Exception(f"Failed to generate answer with Groq: {str(e)}")
+
+# Initialize fast assistant
+fast_assistant = FastAgroAssistant()
+
 # ===== HEALTH CHECKS =====
 class HealthChecker:
     """System health monitoring"""
@@ -138,7 +817,8 @@ class HealthChecker:
                 'api_keys': self.check_api_keys(),
                 'disk_space': self.check_disk_space(),
                 'memory_usage': self.check_memory(),
-                'cpu_usage': self.check_cpu()
+                'cpu_usage': self.check_cpu(),
+                'thread_pool': self.check_thread_pool()
             }
             
             self.healthy = all(checks.values())
@@ -198,6 +878,17 @@ class HealthChecker:
             return psutil.cpu_percent(interval=1) < 80
         except Exception as e:
             logger.error(f"CPU check failed: {str(e)}")
+            return False
+    
+    def check_thread_pool(self):
+        """Check if thread pool is healthy"""
+        try:
+            # Check if we can submit a task to thread pool
+            with ThreadPoolExecutor(max_workers=1) as test_executor:
+                future = test_executor.submit(lambda: True)
+                return future.result(timeout=5)
+        except Exception as e:
+            logger.error(f"Thread pool check failed: {str(e)}")
             return False
 
 # ===== SECURITY =====
@@ -563,8 +1254,79 @@ def get_weather_data(latitude, longitude, location_name):
         logger.error(f"Weather API unexpected error: {str(e)}")
         return create_fallback_weather_data(location_name or "Unknown", f"Service error: {str(e)}")
 
+async def get_weather_data_async(latitude, longitude, location_name):
+    """Async version of weather data fetching"""
+    try:
+        api_key = os.getenv("OPENWEATHER_API_KEY")
+        if not api_key:
+            return create_fallback_weather_data(location_name, "API key missing")
+        
+        # Use the async connection pool if available, otherwise create a new session
+        if hasattr(fast_assistant, 'connection_pool') and fast_assistant.connection_pool.session:
+            return await get_weather_data_async_with_pool(latitude, longitude, location_name, api_key)
+        else:
+            return await get_weather_data_async_standalone(latitude, longitude, location_name, api_key)
+    
+    except Exception as e:
+        logger.error(f"Async weather API error: {str(e)}")
+        return create_fallback_weather_data(location_name or "Unknown", f"Service error: {str(e)}")
+
+async def get_weather_data_async_with_pool(latitude, longitude, location_name, api_key):
+    """Use connection pool for async weather requests"""
+    try:
+        if location_name and location_name != "Unknown":
+            url = f"https://api.openweathermap.org/data/2.5/weather?q={location_name}&appid={api_key}&units=metric"
+        else:
+            url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={api_key}&units=metric"
+        
+        async with fast_assistant.connection_pool.session.get(
+            url, 
+            timeout=aiohttp.ClientTimeout(total=10)
+        ) as response:
+            if response.status == 200:
+                data = await response.json()
+                return format_weather_data(data, location_name)
+            else:
+                return create_fallback_weather_data(location_name, f"HTTP {response.status}")
+                
+    except asyncio.TimeoutError:
+        logger.error("Async weather API request timeout")
+        return create_fallback_weather_data(location_name or "Unknown", "Weather service timeout")
+    except aiohttp.ClientConnectionError:
+        logger.error("Async weather API connection error")
+        return create_fallback_weather_data(location_name or "Unknown", "Weather service unavailable")
+    except Exception as e:
+        logger.error(f"Async weather API unexpected error: {str(e)}")
+        return create_fallback_weather_data(location_name or "Unknown", f"Service error: {str(e)}")
+
+async def get_weather_data_async_standalone(latitude, longitude, location_name, api_key):
+    """Standalone async weather request without connection pool"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            if location_name and location_name != "Unknown":
+                url = f"https://api.openweathermap.org/data/2.5/weather?q={location_name}&appid={api_key}&units=metric"
+            else:
+                url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={api_key}&units=metric"
+            
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return format_weather_data(data, location_name)
+                else:
+                    return create_fallback_weather_data(location_name, f"HTTP {response.status}")
+    
+    except asyncio.TimeoutError:
+        logger.error("Async weather API request timeout")
+        return create_fallback_weather_data(location_name or "Unknown", "Weather service timeout")
+    except aiohttp.ClientConnectionError:
+        logger.error("Async weather API connection error")
+        return create_fallback_weather_data(location_name or "Unknown", "Weather service unavailable")
+    except Exception as e:
+        logger.error(f"Async weather API unexpected error: {str(e)}")
+        return create_fallback_weather_data(location_name or "Unknown", f"Service error: {str(e)}")
+
 def get_weather_by_coordinates(latitude, longitude, location_name, api_key):
-    """Get weather data using coordinates"""
+    """Get weather data using coordinates (sync version)"""
     try:
         url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={api_key}&units=metric"
         logger.info(f"Attempting weather API call by coordinates: {latitude}, {longitude}")
@@ -632,6 +1394,18 @@ def create_fallback_weather_data(location_name, error_reason):
         "fallback_reason": error_reason,
         "note": "Using estimated weather data based on season and location"
     }
+
+# Helper function to maintain backward compatibility
+def get_weather_data_sync_or_async(latitude, longitude, location_name, use_async=True):
+    """
+    Unified weather data function that can use sync or async based on context
+    """
+    if use_async and asyncio.get_event_loop().is_running():
+        # We're in an async context, use async version
+        return get_weather_data_async(latitude, longitude, location_name)
+    else:
+        # We're in sync context, use sync version
+        return get_weather_data(latitude, longitude, location_name)
 
 def get_seasonal_info(query=""):
     """Get current season information for agricultural context with query awareness"""
@@ -869,6 +1643,18 @@ def is_poor_answer(answer):
         return True
     
     return any(indicator in answer_lower for indicator in poor_indicators)
+
+def process_queries_batch(queries_with_locations):
+    """Batch process multiple queries using fast assistant"""
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(fast_assistant.process_queries_fast(queries_with_locations))
+        loop.close()
+        return result
+    except Exception as e:
+        logger.error(f"Batch processing failed: {str(e)}")
+        return [{"error": str(e)} for _ in queries_with_locations]
 
 def truncate_answer(answer, max_words=150):
     """Truncate answer to specified word count while ensuring complete sentences"""
@@ -1698,10 +2484,16 @@ def process_agricultural_query_with_greeting(query, user_location_data=None):
     
     return response
 
+# ===== UPDATED PROCESS QUERY FUNCTION =====
 def process_query(query, user_location_data=None):
     """Main function to process a user query with optional frontend location data"""
     logger.info(f"Processing query: {query}")
     logger.info(f"User location data: {user_location_data}")
+    
+    # Check for complex scientific queries first
+    if is_complex_scientific_query(query):
+        logger.info("Complex scientific query detected - specialized handling")
+        return handle_scientific_query(query)
     
     normalized_query = query.lower().strip()
     
@@ -1964,8 +2756,8 @@ def setup_signal_handlers():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-def main():
-    """Production main function with monitoring and health checks"""
+async def main_async():
+    """Async main function"""
     setup_signal_handlers()
     
     # Start metrics server
@@ -1974,13 +2766,13 @@ def main():
     
     # Initialize components
     try:
+        await fast_assistant.initialize()
         initialize_components()
         
         # Health check
         health_checker = HealthChecker()
         health_status = health_checker.check_health()
         
-        # Display system info even if health check fails
         display_system_info(health_status)
         
         if not health_status.get('healthy', False):
@@ -1991,9 +2783,10 @@ def main():
         start_background_tasks(health_checker)
         
         # Main application loop
-        print("\n🌱 Welcome to Agro Assistant (Production)!")
+        print("\n🌱 Welcome to Agro Assistant (Fast Production)!")
         print("Available commands:")
         print("  • Ask any agricultural question")
+        print("  • 'batch' - Process multiple queries")
         print("  • 'update' - Update documents")
         print("  • 'health' - System health check")
         print("  • 'stats' - System statistics")
@@ -2002,40 +2795,44 @@ def main():
         
         while True:
             try:
-                query = input("📝 Your question: ").strip()
+                user_input = input("📝 Your question: ").strip()
                 
-                if query.lower() in ['exit', 'quit', 'bye']:
+                if user_input.lower() in ['exit', 'quit', 'bye']:
                     print("👋 Goodbye!")
                     break
-                elif query.lower() == 'update':
+                elif user_input.lower() == 'update':
                     handle_document_update()
                     continue
-                elif query.lower() == 'health':
+                elif user_input.lower() == 'health':
                     display_health_status()
                     continue
-                elif query.lower() == 'stats':
+                elif user_input.lower() == 'stats':
                     display_system_stats()
                     continue
+                elif user_input.lower() == 'batch':
+                    await handle_batch_processing()
+                    continue
                     
-                if not query:
+                if not user_input:
                     continue
                 
-                # Process query with monitoring
-                ACTIVE_QUERIES.inc()
+                # Process single query with fast assistant
                 start_time = time.time()
                 
                 try:
-                    response = process_query(query)
+                    # Use batch processor for single query too
+                    results = await fast_assistant.process_queries_fast([(user_input, None)])
+                    response = results[0] if results else {"error": "No response generated"}
+                    
                     QUERY_COUNTER.labels(
                         llm_source=response.get('llm_source', 'unknown'),
-                        status='success'
+                        status='success' if 'error' not in response else 'error'
                     ).inc()
                 except Exception as e:
                     QUERY_COUNTER.labels(llm_source='unknown', status='error').inc()
                     response = {"error": f"Processing error: {str(e)}"}
                 finally:
                     QUERY_DURATION.observe(time.time() - start_time)
-                    ACTIVE_QUERIES.dec()
                 
                 display_response(response)
                 
@@ -2051,6 +2848,41 @@ def main():
     except Exception as e:
         logger.error(f"Application error: {str(e)}")
         sys.exit(1)
+    finally:
+        await fast_assistant.shutdown()
+
+async def handle_batch_processing():
+    """Handle batch query processing"""
+    print("\n🔀 Batch Processing Mode")
+    print("Enter multiple queries (one per line), then type 'END' on a new line:")
+    
+    queries = []
+    while True:
+        query = input().strip()
+        if query.upper() == 'END':
+            break
+        if query:
+            queries.append((query, None)) 
+    
+    if not queries:
+        print("No queries provided.")
+        return
+    
+    print(f"🔄 Processing {len(queries)} queries concurrently...")
+    start_time = time.time()
+    
+    results = await fast_assistant.process_queries_fast(queries)
+    
+    print(f"✅ Processed {len(results)} queries in {time.time() - start_time:.2f}s")
+    
+    for i, result in enumerate(results):
+        print(f"\n--- Result {i+1} ---")
+        display_response(result)
+
+def main():
+    """Main entry point"""
+    asyncio.run(main_async())
+
 
 if __name__ == "__main__":
     main()

@@ -154,6 +154,10 @@ export const reorder = async (req, res) => {
             status: 'pending'
         });
 
+        // DEDUCT INVENTORY
+        crop.Quantity_available_retail -= originalOrder.quantity;
+        await crop.save();
+
         res.status(201).json({
             success: true,
             message: 'Reorder placed successfully',

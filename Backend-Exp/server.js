@@ -1,96 +1,76 @@
-  import express from "express";
-  import mongoose from "mongoose";
-  import cors from "cors";
-  import dotenv from "dotenv";
-  import connectDB from "./config/database.js";
-  import orderRoutes from './routes/orders.js';
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
+import connectDB from "./config/database.js";
 
-  // Import routes 
-  import authRoutes from "./routes/auth.js";
-  import cropListingRoutes from "./routes/cropListings.js";
-  import userRoutes from "./routes/users.js";
+// Import Routes
+import authRoutes from "./routes/auth.js";
+import cropListingRoutes from "./routes/cropListings.js";
+import userRoutes from "./routes/users.js";
+import orderRoutes from './routes/orders.js';
+import cartRoutes from "./routes/cart.js";
 
-  // Import Middleware
-  import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
+// Import Middleware
+import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 
+dotenv.config();
 
-  // Import controllers
-  // import {
-  //   getUserById,
-  //   updateUser,
-  //   deleteUser
-  // } from "./controllers/userController.js";
+console.log("Starting AgroGyaan Backend Server...");
 
-  // import {
-  //   getCropListings,
-  //   getCropListingById,
-  //   createCropListing,
-  //   updateCropListing,
-  //   deleteCropListing
-  // } from "./controllers/cropListingController.js";
+// Check if JWT_SECRET is set
+if (!process.env.JWT_SECRET) {
+  console.error("FATAL ERROR: JWT_SECRET is not defined.");
+  process.exit(1);
+}
 
-  dotenv.config();
+const app = express();
+const PORT = process.env.PORT || 5678;
 
-  console.log("Starting AgroGyaan Backend Server...");
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-  // Check if JWT_SECRET is set
-  if (!process.env.JWT_SECRET) {
-      console.error("FATAL ERROR: JWT_SECRET is not defined.");
-      process.exit(1);
-  }
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
 
-  const app = express();
-  const PORT = process.env.PORT || 5000;
-
-  app.use(cors());
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
-  //Request logging middleware
-  app.use((req, res, next) => {
-      console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-      next();
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: '✅ OK',
+    database: mongoose.connection.readyState === 1 ? '✅ Connected' : '❌ Disconnected',
   });
+});
 
-
-  app.head('/', (req, res) => {
-    res.status(200).end();
+// Test route
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: '✅ API is working!',
+    version: '1.0.0'
   });
-  // Health check endpoint
-  app.get('/api/health', (req, res) => {
-    res.json({ 
-      status: '✅ OK', 
-      database: mongoose.connection.readyState === 1 ? '✅ Connected' : '❌ Disconnected',
-    });
-  });
+});
 
-  // Test route
-  app.get('/api/test', (req, res) => {
-    res.json({ 
-      message: '✅ API is working!',
-      version: '1.0.0'
-    });
-  });
+// Use routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/crop-listings", cropListingRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/cart', cartRoutes);
 
-  // Use routes
-  app.use("/api/auth", authRoutes);
-  app.use("/api/users", userRoutes);
-  app.use("/api/crop-listings", cropListingRoutes);
-  app.use('/api/orders', orderRoutes);
+app.get('/api/users/debug', (req, res) => {
+  res.json({ message: 'User routes are working!' });
+});
 
-  
-  app.get('/api/users/debug', (req, res) => {
-    res.json({ message: 'User routes are working!' });
-  });
+// 404 Handler - MUST be after all routes
+app.use(notFound);
 
-  // 404 Handler - MUST be after all routes
-  app.use(notFound);
+// Error Handler - MUST be the last middleware
+app.use(errorHandler);
 
-  // Error Handler - MUST be the last middleware
-  app.use(errorHandler);
-
-  app.listen(PORT, async () => {
-      await connectDB();
-      console.log(`🚀 Server running on http://127.0.0.1:${PORT}`);
-  });
-
+app.listen(PORT, async () => {
+  await connectDB();
+  console.log(`🚀 Server running on http://127.0.0.1:${PORT}`);
+});

@@ -3,8 +3,30 @@ import CropListing from "../models/CropListing.js";
 // Get all crop listings
 export const getCropListings = async (req, res, next) => {
   try {
-    const cropListings = await CropListing.find()
-      .populate('farmer_id', 'name email phone')
+    const { search, organic, minPrice, maxPrice } = req.query;
+
+    // Build query object
+    let query = { listing_status: 'active' }; // Default: show only active listings
+
+    // Search filter (Crop Name OR Farmer Name - requires lookup but for now simplistic approach on crop name)
+    if (search) {
+      query.crop_name = { $regex: search, $options: 'i' }; // Case-insensitive partial match
+    }
+
+    // Organic filter
+    if (organic === 'true') {
+      query.organic_certified = true;
+    }
+
+    // Price filtering (optional addition)
+    if (minPrice || maxPrice) {
+      query.price_per_unit_retail = {};
+      if (minPrice) query.price_per_unit_retail.$gte = Number(minPrice);
+      if (maxPrice) query.price_per_unit_retail.$lte = Number(maxPrice);
+    }
+
+    const cropListings = await CropListing.find(query)
+      .populate('farmer_id', 'name email phone') // Populate farmer details
       .sort({ createdAt: -1 });
 
     res.json(cropListings);

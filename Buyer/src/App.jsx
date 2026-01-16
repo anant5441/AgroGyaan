@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import Index from "./pages/Index";
 import Marketplace from "./pages/Marketplace";
+import Cart from "./pages/Cart";
 import Orders from "./pages/Orders";
 import PriceTracker from "./pages/PriceTracker";
 import Traceability from "./pages/Traceability";
@@ -25,22 +26,22 @@ const App = () => {
     const userData = urlParams.get('user');
 
     console.log('URL params found:', { token, userData }); // Debug log
-    
+
     if (token && userData) {
       try {
         // Parse the user data from JSON string
         const user = JSON.parse(decodeURIComponent(userData));
-        
+
         // Store in sessionStorage for this domain
         sessionStorage.setItem('token', token);
         sessionStorage.setItem('user', JSON.stringify(user));
-        
+
         console.log('Authentication data stored:', { token, user }); // Debug log
-        
+
         // Clean up the URL (remove token parameters)
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
-        
+
         console.log('URL cleaned up');
       } catch (error) {
         console.error('Error processing URL authentication data:', error);
@@ -60,6 +61,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/marketplace" element={<Marketplace />} />
+              <Route path="/cart" element={<Cart />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/price-tracker" element={<PriceTracker />} />
               <Route path="/traceability" element={<Traceability />} />

@@ -1,12 +1,12 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Package, 
-  TrendingUp, 
-  MapPin, 
-  MessageCircle, 
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Package,
+  TrendingUp,
+  MapPin,
+  MessageCircle,
   Settings,
   Search,
   Bell,
@@ -29,6 +29,7 @@ import {
 const sidebarItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: ShoppingCart, label: 'Marketplace', path: '/marketplace' },
+  { icon: Package, label: 'My Cart', path: '/cart' },
   { icon: Package, label: 'My Orders', path: '/orders' },
   { icon: TrendingUp, label: 'Price Tracker', path: '/price-tracker' },
   { icon: MapPin, label: 'Traceability', path: '/traceability' },
@@ -53,7 +54,7 @@ const DashboardLayout = ({ children }) => {
             </div>
             <span className="text-primary-foreground font-bold text-xl">AGROGYAAN</span>
           </div>
-          
+
           <nav className="space-y-2">
             {sidebarItems.map((item, index) => {
               const isActive = location.pathname === item.path;
@@ -61,11 +62,10 @@ const DashboardLayout = ({ children }) => {
                 <button
                   key={index}
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 group ${
-                    isActive 
-                      ? 'bg-primary-foreground/20 text-primary-foreground shadow-glow' 
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 group ${isActive
+                      ? 'bg-primary-foreground/20 text-primary-foreground shadow-glow'
                       : 'text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground'
-                  }`}
+                    }`}
                 >
                   <item.icon className="w-5 h-5" />
                   <span className="font-medium">{item.label}</span>
@@ -102,9 +102,9 @@ const DashboardLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="relative"
               onClick={() => navigate('/notifications')}
             >

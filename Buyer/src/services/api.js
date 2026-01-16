@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_EXP_URL || 'http://localhost:5
 const getToken = () => {
     // return sessionStorage.getItem('token');
     // HARDCODED TOKEN FOR DEVELOPMENT/DEBUGGING
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5Njk2YjQ1YzYxYTFlODc0ZDQ4YmIwMyIsInJvbGUiOiJidXllciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEJ1eWVyIiwiaWF0IjoxNzY4NTIxNTE0LCJleHAiOjE3Njg1MjUxMTR9.q_Fhy_89eLU_dJKRAc8FuiiNCAlm_NICPxM4WbbG5NU";
+    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5Njk2YjQ1YzYxYTFlODc0ZDQ4YmIwMyIsInJvbGUiOiJidXllciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEJ1eWVyIiwiaWF0IjoxNzY4NTI3NzY1LCJleHAiOjE3Njg2MTQxNjV9.e6ks6bUzzdU5-7p0-jqy5qqcOW3eoFDoDeeXgSK6KOw";
 };
 
 
@@ -58,4 +58,19 @@ export const cropsAPI = {
         const queryParams = new URLSearchParams(filters).toString();
         return apiCall(`/api/crop-listings?${queryParams}`);
     },
+};
+
+// Cart API
+export const cartAPI = {
+    get: () => apiCall('/api/cart'),
+    add: (crop_id, quantity) => apiCall('/api/cart/add', {
+        method: 'POST',
+        body: JSON.stringify({ crop_id, quantity })
+    }),
+    remove: (itemId) => apiCall(`/api/cart/${itemId}`, {
+        method: 'DELETE'
+    }),
+    checkout: () => apiCall('/api/cart/checkout', {
+        method: 'POST'
+    })
 };

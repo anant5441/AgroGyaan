@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const cropListingSchema = new mongoose.Schema({
     farmer_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Farmer',
+        ref: 'User',
         required: true
     },
     crop_name: {
@@ -37,7 +37,7 @@ const cropListingSchema = new mongoose.Schema({
         enum: ['active', 'sold'],
         default: 'active'
     }
-    }, {
+}, {
     timestamps: true
 });
 

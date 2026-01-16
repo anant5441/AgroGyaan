@@ -3,6 +3,7 @@
   import cors from "cors";
   import dotenv from "dotenv";
   import connectDB from "./config/database.js";
+  import orderRoutes from './routes/orders.js';
 
   // Import routes 
   import authRoutes from "./routes/auth.js";
@@ -75,7 +76,9 @@
   app.use("/api/auth", authRoutes);
   app.use("/api/users", userRoutes);
   app.use("/api/crop-listings", cropListingRoutes);
+  app.use('/api/orders', orderRoutes);
 
+  
   app.get('/api/users/debug', (req, res) => {
     res.json({ message: 'User routes are working!' });
   });

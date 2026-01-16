@@ -6,7 +6,7 @@ export const getCropListings = async (req, res, next) => {
     const cropListings = await CropListing.find()
       .populate('farmer_id', 'name email phone')
       .sort({ createdAt: -1 });
-    
+
     res.json(cropListings);
   } catch (error) {
     next(error);
@@ -18,14 +18,14 @@ export const getCropListingById = async (req, res, next) => {
   try {
     const cropListing = await CropListing.findById(req.params.id)
       .populate('farmer_id', 'name email phone');
-    
+
     if (!cropListing) {
       const error = new Error('Crop listing not found');
       error.statusCode = 404;
       error.code = 'CROP_LISTING_NOT_FOUND';
       throw error;
     }
-    
+
     res.json(cropListing);
   } catch (error) {
     next(error);
@@ -35,11 +35,17 @@ export const getCropListingById = async (req, res, next) => {
 // Create a crop listing
 export const createCropListing = async (req, res, next) => {
   try {
-    const cropListing = new CropListing(req.body);
+    // Automatically add farmer_id from authenticated user
+    const cropListingData = {
+      ...req.body,
+      farmer_id: req.user._id  // Add logged-in farmer's ID
+    };
+
+    const cropListing = new CropListing(cropListingData);
     const savedCropListing = await cropListing.save();
-    
+
     await savedCropListing.populate('farmer_id', 'name email phone');
-    
+
     res.status(201).json(savedCropListing);
   } catch (error) {
     next(error);
@@ -52,19 +58,19 @@ export const updateCropListing = async (req, res, next) => {
     const cropListing = await CropListing.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { 
-        new: true, 
-        runValidators: true 
+      {
+        new: true,
+        runValidators: true
       }
     ).populate('farmer_id', 'name email phone');
-    
+
     if (!cropListing) {
       const error = new Error('Crop listing not found');
       error.statusCode = 404;
       error.code = 'CROP_LISTING_NOT_FOUND';
       throw error;
     }
-    
+
     res.json({
       message: 'Crop listing updated successfully',
       cropListing
@@ -78,14 +84,14 @@ export const updateCropListing = async (req, res, next) => {
 export const deleteCropListing = async (req, res, next) => {
   try {
     const cropListing = await CropListing.findByIdAndDelete(req.params.id);
-    
+
     if (!cropListing) {
       const error = new Error('Crop listing not found');
       error.statusCode = 404;
       error.code = 'CROP_LISTING_NOT_FOUND';
       throw error;
     }
-    
+
     res.json({
       message: 'Crop listing deleted successfully',
       cropListing: {

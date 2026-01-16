@@ -1,19 +1,15 @@
+
 import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema({
     buyer_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Buyer',
+        ref: 'User',  // Links to User collection
         required: true
     },
-    farmer_ids: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Farmer',
-        required: true
-    }],
     crop_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'CropListing',
+        ref: 'CropListing',  // Links to CropListing collection
         required: true
     },
     quantity: {
@@ -24,28 +20,18 @@ const orderSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    order_type: {
-        type: String,
-        enum: ['retail', 'bulk'],
-        required: true
-    },
     status: {
         type: String,
-        enum: ['pending', 'confirmed', 'dispatched', 'delivered', 'cancelled'],
+        enum: ['pending', 'confirmed', 'in_transit', 'delivered', 'cancelled'],
         default: 'pending'
-    },
-    payment_status: {
-        type: String,
-        enum: ['pending', 'paid', 'escrow', 'refunded'],
-        default: 'pending'
-    },
-    logistics_required: {
-        type: Boolean,
-        default: false
-    },
-    delivery_address: String
-    }, {
-    timestamps: true
+    }
+}, {
+    timestamps: true  // Auto-creates createdAt and updatedAt
+});
+
+// Virtual field for display ID
+orderSchema.virtual('displayId').get(function() {
+    return `ORD-2024-${this._id.toString().slice(-6)}`;
 });
 
 export default mongoose.model("Order", orderSchema);

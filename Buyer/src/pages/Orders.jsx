@@ -1,245 +1,98 @@
-// import React from 'react';
-import React, { useState, useMemo } from 'react';
-import DashboardLayout from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-// import { Package, Truck, CheckCircle, Clock, RotateCcw } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Truck, CheckCircle, Clock, RotateCcw, X } from 'lucide-react';
-import Footer from '@/components/Footer';
-import { useToast } from '@/hooks/use-toast';
+import React, { useEffect, useMemo, useState } from "react";
+import { ordersAPI } from "@/services/api";
+import DashboardLayout from "@/components/DashboardLayout";
+import Footer from "@/components/Footer";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Package, Truck, CheckCircle, Clock, RotateCcw, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Orders = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('all');
-  const [orders, setOrders] = useState([
-    {
-      id: "ORD-2024-001",
-      crop: "Fresh Tomatoes",
-      farmer: "Ramesh Patel",
-      quantity: "25 kg",
-      price: "₹1,125",
-      status: "Delivered",
-      date: "2024-01-15"
-    },
-    {
-      id: "ORD-2024-002", 
-      crop: "Organic Wheat",
-      farmer: "Priya Sharma",
-      quantity: "50 kg",
-      price: "₹1,400",
-      status: "In Transit",
-      date: "2024-01-14"
-    },
-    {
-      id: "ORD-2024-003",
-      crop: "Fresh Potatoes", 
-      farmer: "Kumar Singh",
-      quantity: "30 kg",
-      price: "₹1,050",
-      status: "Pending",
-      date: "2024-01-13"
-    },
-    {
-      id: "ORD-2024-004",
-      crop: "Organic Apples",
-      farmer: "Sita Sharma",
-      quantity: "15 kg",
-      price: "₹900",
-      status: "Confirmed",
-      date: "2024-01-12"
-    },
-    {
-      id: "ORD-2024-005",
-      crop: "Fresh Onions",
-      farmer: "Ravi Kumar",
-      quantity: "40 kg",
-      price: "₹800",
-      status: "Cancelled",
-      date: "2024-01-11"
-    }
-  ]);
+  const [activeTab, setActiveTab] = useState("all");
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredOrders = useMemo(() => {
-    if (activeTab === 'all') return orders;
-    return orders.filter(order => {
-      switch (activeTab) {
-        case 'pending': return order.status === 'Pending';
-        case 'confirmed': return order.status === 'Confirmed';
-        case 'completed': return order.status === 'Delivered';
-        case 'cancelled': return order.status === 'Cancelled';
-        default: return true;
+  // Fetch orders
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const res = await ordersAPI.getAll();
+        setOrders(res.data);
+      } catch (err) {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
       }
-    });
+    };
+    fetchOrders();
+  }, []);
+
+  // Filter
+  const filteredOrders = useMemo(() => {
+    if (activeTab === "all") return orders;
+    return orders.filter((o) => o.status === activeTab);
   }, [orders, activeTab]);
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Delivered': return <CheckCircle className="w-4 h-4" />;
-      case 'In Transit': return <Truck className="w-4 h-4" />;
-      case 'Confirmed': return <Package className="w-4 h-4" />;
-      case 'Pending': return <Clock className="w-4 h-4" />;
-      case 'Cancelled': return <X className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
+  // Status UI
+  const statusIcon = {
+    pending: <Clock className="w-4 h-4" />,
+    confirmed: <Package className="w-4 h-4" />,
+    delivered: <CheckCircle className="w-4 h-4" />,
+    cancelled: <X className="w-4 h-4" />,
+  };
+
+  const statusVariant = {
+    pending: "outline",
+    confirmed: "secondary",
+    delivered: "default",
+    cancelled: "destructive",
+  };
+
+  const updateOrder = async (id, status) => {
+    try {
+      await ordersAPI.updateStatus(id, status);
+      setOrders((prev) =>
+        prev.map((o) => (o._id === id ? { ...o, status } : o))
+      );
+      toast({ title: "Order updated" });
+    } catch (err) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
 
-  const getStatusVariant = (status) => {
-    switch (status) {
-      case 'Delivered': return 'default';
-      case 'In Transit': return 'secondary';
-      case 'Confirmed': return 'outline';
-      case 'Pending': return 'outline';
-      case 'Cancelled': return 'destructive';
-      default: return 'outline';
+  const handleReorder = async (id) => {
+    try {
+      await ordersAPI.reorder(id);
+      toast({ title: "Reorder placed successfully!" });
+      // Refresh list
+      const res = await ordersAPI.getAll();
+      setOrders(res.data);
+    } catch (err) {
+      toast({ title: "Reorder failed", description: err.message, variant: "destructive" });
     }
   };
 
-  const handleOrderAction = (orderId, action) => {
-    setOrders(prevOrders => 
-      prevOrders.map(order => {
-        if (order.id === orderId) {
-          switch (action) {
-            case 'confirm':
-              toast({
-                title: "Order Confirmed",
-                description: `Order ${orderId} has been confirmed.`,
-              });
-              return { ...order, status: 'Confirmed' };
-            case 'cancel':
-              toast({
-                title: "Order Cancelled",
-                description: `Order ${orderId} has been cancelled.`,
-              });
-              return { ...order, status: 'Cancelled' };
-            case 'complete':
-              toast({
-                title: "Order Completed",
-                description: `Order ${orderId} has been marked as completed.`,
-              });
-              return { ...order, status: 'Delivered' };
-            case 'reorder':
-              toast({
-                title: "Reorder Placed",
-                description: `A new order has been placed for ${order.crop}.`,
-              });
-              return order;
-            default:
-              return order;
-          }
-        }
-        return order;
-      })
-    );
-  };
-
-  const getOrderActions = (order) => {
-    switch (order.status) {
-      case 'Pending':
-        return (
-          <div className="flex gap-2">
-            <Button 
-              size="sm" 
-              onClick={() => handleOrderAction(order.id, 'confirm')}
-              className="bg-gradient-primary hover:shadow-glow"
-            >
-              Confirm
-            </Button>
-            <Button 
-              size="sm" 
-              variant="destructive"
-              onClick={() => handleOrderAction(order.id, 'cancel')}
-            >
-              Cancel
-            </Button>
-          </div>
-        );
-      case 'Confirmed':
-        return (
-          <Button 
-            size="sm" 
-            onClick={() => handleOrderAction(order.id, 'complete')}
-            className="bg-gradient-primary hover:shadow-glow"
-          >
-            Mark Completed
-          </Button>
-        );
-      case 'Delivered':
-      case 'Cancelled':
-        return (
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => handleOrderAction(order.id, 'reorder')}
-          >
-            <RotateCcw className="w-4 h-4 mr-1" />
-            Reorder
-          </Button>
-        );
-      default:
-        return (
-          <Button size="sm" variant="outline">
-            Track
-          </Button>
-        );
-    }
-  };
+  if (loading) return <div className="p-8">Loading…</div>;
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">My Orders</h1>
-            <p className="text-muted-foreground">Track your purchases and order history</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-2 border-primary/20">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-gradient-primary rounded-2xl">
-                  <Package className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">12</p>
-                  <p className="text-sm text-muted-foreground">Total Orders</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-primary/20">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-gradient-accent rounded-2xl">
-                  <Truck className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">3</p>
-                  <p className="text-sm text-muted-foreground">In Transit</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-primary/20">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-gradient-primary rounded-2xl">
-                  <CheckCircle className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">9</p>
-                  <p className="text-sm text-muted-foreground">Delivered</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <h1 className="text-3xl font-bold">My Orders</h1>
 
         <Card>
           <CardHeader>
@@ -247,79 +100,94 @@ const Orders = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="all">All Orders</TabsTrigger>
+              <TabsList className="grid grid-cols-5 w-full">
+                <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
                 <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
+                <TabsTrigger value="delivered">Delivered</TabsTrigger>
                 <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
               </TabsList>
 
-              <TabsContent value={activeTab} className="mt-6">
-                <div className="mb-4">
-                  <p className="text-muted-foreground">
-                    Showing {filteredOrders.length} orders
-                  </p>
-                </div>
-                
+              <TabsContent value={activeTab} className="mt-4">
                 <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order ID</TableHead>
-                  <TableHead>Crop</TableHead>
-                  <TableHead>Farmer</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>No orders found in this category</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredOrders.map((order) => (
-                  <TableRow key={order.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">{order.id}</TableCell>
-                    <TableCell>{order.crop}</TableCell>
-                    <TableCell>{order.farmer}</TableCell>
-                    <TableCell>{order.quantity}</TableCell>
-                    <TableCell className="font-semibold">{order.price}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusVariant(order.status)} className="flex items-center gap-1 w-fit">
-                        {getStatusIcon(order.status)}
-                        {order.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {/* <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
-                          Track
-                        </Button>
-                        <Button size="sm" variant="ghost">
-                          <RotateCcw className="w-4 h-4 mr-1" />
-                          Reorder
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table> */}
-             {getOrderActions(order)}
-                    </TableCell>
-                  </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Crop</TableHead>
+                      <TableHead>Farmer</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {filteredOrders.map((o) => (
+                      <TableRow key={o._id}>
+                        <TableCell>{o.displayId || o._id.slice(-6)}</TableCell>
+                        <TableCell>{o.crop_id?.crop_name || 'Unknown Crop'}</TableCell>
+                        <TableCell>{o.crop_id?.farmer_id?.name || 'Unknown Farmer'}</TableCell>
+                        <TableCell>{o.quantity}</TableCell>
+                        <TableCell>₹{o.price_total}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={statusVariant[o.status]}
+                            className="flex gap-1 w-fit"
+                          >
+                            {statusIcon[o.status]}
+                            {o.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="space-x-2">
+                          {o.status === "pending" && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  updateOrder(o._id, "confirmed")
+                                }
+                              >
+                                Confirm
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() =>
+                                  updateOrder(o._id, "cancelled")
+                                }
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          )}
+
+                          {o.status === "confirmed" && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                updateOrder(o._id, "delivered")
+                              }
+                            >
+                              Complete
+                            </Button>
+                          )}
+
+                          {["delivered", "cancelled"].includes(o.status) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReorder(o._id)}
+                            >
+                              <RotateCcw className="w-4 h-4 mr-1" />
+                              Reorder
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </TabsContent>
             </Tabs>
           </CardContent>

@@ -59,6 +59,12 @@ export const createOrder = async (req, res) => {
             console.log('❌ Crop not found for ID:', crop_id);
             return res.status(404).json({ success: false, message: 'Crop not found' });
         }
+
+        // CHECK INVENTORY
+        if (crop.Quantity_available_retail < quantity) {
+            return res.status(400).json({ success: false, message: `Insufficient stock! Only ${crop.Quantity_available_retail} available.` });
+        }
+
         console.log('✅ Crop found:', crop.crop_name, 'Price:', crop.price_per_unit_retail);
 
         const price = crop.price_per_unit_retail || crop.price_per_unit_wholesale || 0;
@@ -74,7 +80,11 @@ export const createOrder = async (req, res) => {
             status: 'pending'
         });
 
-        console.log('✅ Order created:', order._id);
+        // DEDUCT INVENTORY
+        crop.Quantity_available_retail -= quantity;
+        await crop.save();
+
+        console.log('✅ Order created & Inventory updated:', order._id);
         res.status(201).json({ success: true, data: order });
     } catch (error) {
         console.error('❌ Create Order Error:', error);
@@ -88,11 +98,24 @@ export const updateOrderStatus = async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
 
-        const order = await Order.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true }  // Return updated document
-        );
+        const order = await Order.findById(id);
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        // RESTORE INVENTORY IF CANCELLED
+        if (status === 'cancelled' && order.status !== 'cancelled') {
+            const crop = await CropListing.findById(order.crop_id);
+            if (crop) {
+                crop.Quantity_available_retail += order.quantity;
+                await crop.save();
+                console.log('🔄 Inventory restored for cancelled order:', id);
+            }
+        }
+
+        order.status = status;
+        await order.save();
 
         res.status(200).json({ success: true, data: order });
     } catch (error) {

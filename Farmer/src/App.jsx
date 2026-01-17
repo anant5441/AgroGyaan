@@ -13,11 +13,14 @@ import DiseaseClassifier from "./pages/DiseaseClassifier";
 import { Navbar } from "./components/navbar";
 import { MarketPriceDashboard } from "./pages/MarketPriceDashboard";
 import { FeaturesPage } from "./pages/FeaturesPage";
-import  CropPrediction from "./pages/CropPrediction";
-import  NPKPrediction from "./pages/NPKPrediction";
-import  SimplePrediction from "./pages/SimplePrediction";
+import CropPrediction from "./pages/CropPrediction";
+import NPKPrediction from "./pages/NPKPrediction";
+import SimplePrediction from "./pages/SimplePrediction";
 import Profile from "./pages/Profile";
 
+import MyListings from './pages/MyListings';
+import MyOrders from './pages/MyOrders';
+import FarmerPanel from './pages/FarmerPanel';
 
 const queryClient = new QueryClient();
 
@@ -29,27 +32,27 @@ const App = () => {
     // const urlParams = new URLSearchParams(window.location.search);
     // const token = urlParams.get('token');
     // const userData = urlParams.get('user');
-    
+
     // if (token && userData) {
     //   // Store in sessionStorage/localStorage for this domain
     //   sessionStorage.setItem('token', token);
     //   sessionStorage.setItem('user', userData);
-      
+
     //   // Clean up the URL
     //   const cleanUrl = window.location.origin + window.location.pathname;
     //   window.history.replaceState({}, document.title, cleanUrl);
     const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  const user = params.get('user');
+    const token = params.get('token');
+    const user = params.get('user');
 
-  if (token) {
-    // Store in sessionStorage instead of localStorage for security
-    sessionStorage.setItem('token', token);
-    if (user) {
-      sessionStorage.setItem('user', decodeURIComponent(user));
-    }
-    // Clean URL after storing
-    window.history.replaceState({}, document.title, window.location.pathname);
+    if (token) {
+      // Store in sessionStorage instead of localStorage for security
+      sessionStorage.setItem('token', token);
+      if (user) {
+        sessionStorage.setItem('user', decodeURIComponent(user));
+      }
+      // Clean URL after storing
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
   return (
@@ -59,12 +62,12 @@ const App = () => {
           {/* <Toaster /> */}
           <Sonner />
           <BrowserRouter>
-          <Navbar/>
+            <Navbar />
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/profile" element={<Profile/>}/>
+              <Route path="/profile" element={<Profile />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/calendar" element={< CropCalendar/>} />
+              <Route path="/calendar" element={< CropCalendar />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
               <Route path="/organic" element={<OrganicGuide />} />
@@ -74,6 +77,9 @@ const App = () => {
               <Route path="/crop-prediction" element={<CropPrediction />} />
               <Route path="/npk-prediction" element={<NPKPrediction />} />
               <Route path="/simple-prediction" element={<SimplePrediction />} />
+              <Route path="/listings" element={<MyListings />} />
+              <Route path="/orders" element={<MyOrders />} />
+              <Route path="/farmer-panel" element={<FarmerPanel />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>

@@ -1,18 +1,18 @@
-import { 
-  Sprout, 
-  TrendingUp, 
-  Shield, 
-  BookOpen, 
-  Users, 
-  CloudSun, 
-  ShoppingCart, 
-  Tractor, 
-  UserCheck, 
-  BarChart3, 
-  MessageSquare, 
-  Settings 
+import {
+  Sprout,
+  TrendingUp,
+  Shield,
+  BookOpen,
+  Users,
+  CloudSun,
+  ShoppingCart,
+  Tractor,
+  UserCheck,
+  BarChart3,
+  MessageSquare,
+  Settings
 } from "lucide-react";
-import {useNavigate} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { forwardRef } from "react";
@@ -23,7 +23,7 @@ const features = [
     title: "Crop Recommendation",
     description: "AI-powered suggestions for optimal crop selection based on soil, climate, and market conditions.",
     category: "AI Insights",
-    role:"farmer",
+    role: "farmer",
     path: "/crop-prediction"
   },
   {
@@ -32,14 +32,14 @@ const features = [
     description: "Real-time mandi prices and market trends to help you make informed selling decisions.",
     category: "Analytics",
     path: "/pricedashboard",
-    role:"farmer",
+    role: "farmer",
   },
   {
     icon: Shield,
     title: "Disease Prediction",
     description: "Early detection and prevention of crop diseases using computer vision and expert knowledge.",
     category: "Protection",
-    role:"farmer",
+    role: "farmer",
     path: "/diseaseclassifier"
   },
   {
@@ -47,7 +47,7 @@ const features = [
     title: "Organic Farming Tips",
     description: "Comprehensive educational content and best practices for sustainable organic farming.",
     category: "Education",
-    role:"farmer",
+    role: "farmer",
     path: "/organic"
   },
   {
@@ -55,14 +55,14 @@ const features = [
     title: "Farmer Network",
     description: "Connect with fellow farmers, share experiences, and learn from the agricultural community.",
     category: "Community",
-    role:"farmer",
+    role: "farmer",
   },
   {
     icon: CloudSun,
     title: "Weather Check",
     description: "Real-time weather updates and forecasts tailored specifically for agricultural planning.",
     category: "Monitoring",
-    role:"farmer",
+    role: "farmer",
   },
   {
     icon: ShoppingCart,
@@ -70,42 +70,43 @@ const features = [
     description: "Sell your produce directly to buyers with wholesale availability options.",
     category: "Marketplace",
     badge: "Wholesale Available",
-    role:"farmer",
+    role: "farmer",
+    path: "/farmer-panel"
   },
   {
     icon: Tractor,
     title: "Equipment Seller Listings",
     description: "Browse and sell agricultural equipment, tools, and machinery in our dedicated marketplace.",
     category: "Marketplace",
-    role:"supplier",
+    role: "supplier",
   },
   {
     icon: UserCheck,
     title: "Buyer Listings",
     description: "Connect with verified buyers looking for quality agricultural products and services.",
     category: "Marketplace",
-    role:"buyer",
+    role: "buyer",
   },
   {
     icon: TrendingUp,
     title: "Yield Prediction",
     description: "Predict your harvest yield with advanced machine learning algorithms and historical data analysis.",
     category: "AI Insights",
-    role:"farmer",
+    role: "farmer",
   },
   {
     icon: MessageSquare,
     title: "Farmers Community Forum",
     description: "Participate in discussions, ask questions, and share knowledge with the farming community.",
     category: "Community",
-    role:"farmer",
+    role: "farmer",
   },
   {
     icon: Settings,
     title: "Renting Farming Equipment",
     description: "Rent or lease farming equipment and machinery when you need it, where you need it.",
     category: "Services",
-    role:"farmer",
+    role: "farmer",
   }
 ];
 
@@ -124,7 +125,7 @@ export const FeaturesSection = forwardRef((props, ref) => {
 
   const navigate = useNavigate();
   // Get the current user from sessionStorage
-  const user = JSON.parse(sessionStorage.getItem("user")) || { };
+  const user = JSON.parse(sessionStorage.getItem("user")) || {};
   const userRole = user.role; // default fallback
 
   // Filter features by role
@@ -151,7 +152,7 @@ export const FeaturesSection = forwardRef((props, ref) => {
           {filteredFeatures.map((feature, index) => {
             const IconComponent = feature.icon;
             return (
-              <Card 
+              <Card
                 key={feature.title}
                 onClick={() => feature.path && navigate(feature.path)}
                 className="group hover:shadow-hover transition-all duration-300 hover:-translate-y-2 cursor-pointer border-0 shadow-card bg-card/60 backdrop-blur-sm"
@@ -162,8 +163,8 @@ export const FeaturesSection = forwardRef((props, ref) => {
                     <div className="p-3 rounded-xl bg-gradient-primary group-hover:scale-110 transition-transform duration-300">
                       <IconComponent className="h-6 w-6 text-primary-foreground" />
                     </div>
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className={`text-xs ${categoryColors[feature.category]}`}
                     >
                       {feature.category}

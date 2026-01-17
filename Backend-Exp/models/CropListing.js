@@ -11,6 +11,7 @@ const cropListingSchema = new mongoose.Schema({
         required: true
     },
     variety: String,
+    image_url: { type: String },
     Quantity_available_retail: Number,
     Quantity_available_wholesale: Number,
     unit_retail: {

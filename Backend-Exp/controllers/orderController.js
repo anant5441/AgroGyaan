@@ -168,3 +168,21 @@ export const reorder = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+// Get orders received by the farmer
+export const getFarmerOrders = async (req, res) => {
+  try {
+    // efficient Query: Find orders where crop_id belongs to this farmer listing
+    // Since Order model doesn't link directly to Farmer, we first get all crop IDs owned by this farmer
+    const myCrops = await CropListing.find({ farmer_id: req.user._id }).select('_id');
+    const cropIds = myCrops.map(crop => crop._id);
+    // Now find orders for these crops
+    const orders = await Order.find({ crop_id: { $in: cropIds } })
+      .populate('crop_id', 'crop_name image_url')
+      .populate('buyer_id', 'name phone address')
+      .sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: orders });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

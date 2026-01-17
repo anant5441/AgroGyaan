@@ -103,25 +103,38 @@ export const updateCropListing = async (req, res, next) => {
 };
 
 // Delete crop listing by ID
+// Delete crop listing by ID
 export const deleteCropListing = async (req, res, next) => {
   try {
+    console.log(`Attempting to delete crop listing: ${req.params.id}`);
     const cropListing = await CropListing.findByIdAndDelete(req.params.id);
 
     if (!cropListing) {
+      console.log(`Crop listing not found: ${req.params.id}`);
       const error = new Error('Crop listing not found');
       error.statusCode = 404;
       error.code = 'CROP_LISTING_NOT_FOUND';
       throw error;
     }
 
+    console.log(`Successfully deleted crop listing: ${req.params.id}`);
+
     res.json({
       message: 'Crop listing deleted successfully',
-      cropListing: {
-        id: cropListing._id,
-        crop_name: cropListing.crop_name,
-        farmer_id: cropListing.farmer_id
-      }
+      id: req.params.id
     });
+  } catch (error) {
+    console.error(`Error deleting crop listing: ${error.message}`);
+    next(error);
+  }
+};
+
+// Get listings for the logged-in farmer
+export const getMyListings = async (req, res, next) => {
+  try {
+    const listings = await CropListing.find({ farmer_id: req.user._id })
+      .sort({ createdAt: -1 });
+    res.json(listings);
   } catch (error) {
     next(error);
   }

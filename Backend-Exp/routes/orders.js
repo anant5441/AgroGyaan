@@ -1,5 +1,7 @@
 import express from 'express';
 import { protect } from '../middleware/authMiddleware.js';  // Auth middleware
+import { getFarmerOrders } from '../controllers/orderController.js';
+
 import {
     getOrders,
     getOrderById,
@@ -18,5 +20,6 @@ router.get('/:id', getOrderById);              // GET /api/orders/123
 router.post('/', createOrder);                 // POST /api/orders
 router.patch('/:id/status', updateOrderStatus); // PATCH /api/orders/123/status
 router.post('/:id/reorder', reorder);           // POST /api/orders/123/reorder
+router.get('/farmer', protect, getFarmerOrders);
 
 export default router;

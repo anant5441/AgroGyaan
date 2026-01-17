@@ -16,6 +16,7 @@ const router = express.Router();
 router.use(protect);  // Middleware applies to all routes below
 
 router.get('/', getOrders);                    // GET /api/orders
+router.get('/farmer', protect, getFarmerOrders);
 router.get('/:id', getOrderById);              // GET /api/orders/123
 router.post('/', createOrder);                 // POST /api/orders
 router.patch('/:id/status', updateOrderStatus); // PATCH /api/orders/123/status

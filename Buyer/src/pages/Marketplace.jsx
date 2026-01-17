@@ -158,6 +158,22 @@ const Marketplace = () => {
   );
 };
 
+const getCropEmoji = (name) => {
+  const n = name.toLowerCase();
+  if (n.includes('tomato')) return '🍅';
+  if (n.includes('wheat')) return '🌾';
+  if (n.includes('potato')) return '🥔';
+  if (n.includes('corn') || n.includes('maize')) return '🌽';
+  if (n.includes('rice')) return '🍚';
+  if (n.includes('lettuce')) return '🥬';
+  if (n.includes('apple')) return '🍎';
+  if (n.includes('banana')) return '🍌';
+  if (n.includes('carrot')) return '🥕';
+  if (n.includes('onion')) return '🧅';
+  if (n.includes('fruit')) return '🍎'; // Generic fruit
+  return '🌱'; // default
+};
+
 const CropCard = ({ crop, onRefresh }) => {
   const [quantity, setQuantity] = useState(1);
 
@@ -184,54 +200,81 @@ const CropCard = ({ crop, onRefresh }) => {
   };
 
   return (
-    <Card className="group hover:shadow-glow transition-all duration-300 hover:-translate-y-1 border-2 border-primary/10 hover:border-primary/30">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="text-4xl mb-2">
-            {crop.crop_name.toLowerCase().includes('tomato') ? '🍅' :
-              crop.crop_name.toLowerCase().includes('wheat') ? '🌾' :
-                crop.crop_name.toLowerCase().includes('potato') ? '🥔' : '🥬'}
-          </div>
-          <div className="flex gap-2">
-            <Badge className="bg-gradient-primary text-primary-foreground">Verified</Badge>
-            {crop.organic_certified && (
-              <Badge className="bg-success text-success-foreground">🌱 Organic</Badge>
-            )}
+    <Card className="group overflow-hidden hover:shadow-glow transition-all duration-300 hover:-translate-y-1 border-2 border-primary/10 hover:border-primary/30">
+
+      {/* Image Section */}
+      <div className="relative h-48 w-full bg-muted/20 flex items-center justify-center overflow-hidden">
+        {crop.image_url ? (
+          <img
+            src={crop.image_url}
+            alt={crop.crop_name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => {
+              e.target.style.display = 'none'; // hide broken image
+              e.target.parentElement.querySelector('.fallback-emoji').style.display = 'block'; // show emoji
+            }}
+          />
+        ) : null}
+
+        {/* Fallback Emoji (hidden if image loads) */}
+        <span className="fallback-emoji text-6xl animate-bounce-slow" style={{ display: crop.image_url ? 'none' : 'block' }}>
+          {getCropEmoji(crop.crop_name)}
+        </span>
+
+        {/* Badges Overlay */}
+        <div className="absolute top-2 right-2 flex gap-1">
+          <Badge className="bg-white/90 text-primary hover:bg-white backdrop-blur-sm shadow-sm">Verified</Badge>
+          {crop.organic_certified && (
+            <Badge className="bg-green-500/90 hover:bg-green-600 text-white backdrop-blur-sm shadow-sm">Organic</Badge>
+          )}
+        </div>
+      </div>
+
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-xl font-bold text-gray-800">{crop.crop_name}</CardTitle>
+          <div className="flex items-center gap-1 text-sm bg-yellow-50 px-2 py-1 rounded-full border border-yellow-100">
+            <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+            <span className="font-medium text-yellow-700">4.8</span>
           </div>
         </div>
-        <CardTitle className="text-lg">{crop.crop_name}</CardTitle>
-        <Badge variant="secondary" className="w-fit text-xs">
-          In Stock: {crop.Quantity_available_retail}
-        </Badge>
+        <div className="flex items-center gap-2 mt-1">
+          <Badge variant="outline" className="text-xs font-normal">
+            In Stock: {crop.Quantity_available_retail}
+          </Badge>
+          {crop.variety && <Badge variant="outline" className="text-xs font-normal text-muted-foreground">{crop.variety}</Badge>}
+        </div>
       </CardHeader>
+
       <CardContent className="space-y-4">
-        <div className="space-y-2">
+        {/* Farmer Info */}
+        <div className="space-y-1 pt-2 border-t border-dashed">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-medium">👨‍🌾 {crop.farmer_id?.name || 'Unknown Farmer'}</span>
+            <span className="font-medium text-foreground">👨‍🌾 {crop.farmer_id?.name || 'Farmer'}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4" />
-            <span>{crop.farmer_id?.phone ? 'Available' : 'Unavailable'}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-            <span className="font-medium">4.8</span>
+            <MapPin className="w-3.5 h-3.5" />
+            <span>{crop.farmer_id?.location || 'Local Farm'}</span>
           </div>
         </div>
 
-        <div className="space-y-3">
+        {/* Price & Actions */}
+        <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-bold text-primary">₹{crop.price_per_unit_retail}/kg</span>
+            <div>
+              <span className="text-2xl font-bold text-primary">₹{crop.price_per_unit_retail}</span>
+              <span className="text-sm text-muted-foreground"> /kg</span>
+            </div>
 
             {/* Quantity Selector */}
-            <div className="flex items-center border rounded-md">
+            <div className="flex items-center border rounded-lg bg-background shadow-sm">
               <button
-                className="px-2 py-1 text-gray-500 hover:bg-gray-100"
+                className="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-l-lg transition-colors"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
               >-</button>
-              <span className="px-2 text-sm font-medium">{quantity}</span>
+              <span className="px-2 text-sm font-semibold min-w-[1.5rem] text-center">{quantity}</span>
               <button
-                className="px-2 py-1 text-gray-500 hover:bg-gray-100"
+                className="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-r-lg transition-colors"
                 onClick={() => setQuantity(Math.min(crop.Quantity_available_retail, quantity + 1))}
               >+</button>
             </div>
@@ -240,15 +283,15 @@ const CropCard = ({ crop, onRefresh }) => {
           <div className="flex gap-2">
             <Button
               onClick={handleAddToCart}
-              variant="secondary"
-              className="flex-1 bg-green-100 text-green-700 hover:bg-green-200 border-green-200"
+              variant="outline"
+              className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors"
             >
               <ShoppingCart className="w-4 h-4 mr-2" />
               Add
             </Button>
             <Button
               onClick={handleBuyNow}
-              className="flex-1 bg-gradient-primary hover:shadow-glow"
+              className="flex-1 bg-gradient-primary text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
             >
               Buy Now
             </Button>

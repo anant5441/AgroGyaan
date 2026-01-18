@@ -10,6 +10,8 @@ import cropListingRoutes from "./routes/cropListings.js";
 import userRoutes from "./routes/users.js";
 import orderRoutes from './routes/orders.js';
 import cartRoutes from "./routes/cart.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import sellerDashboardRoutes from "./routes/sellerDashboardRoutes.js";
 
 // Import Middleware
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
@@ -59,6 +61,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/crop-listings", cropListingRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/seller-dashboard', sellerDashboardRoutes);
 
 app.get('/api/users/debug', (req, res) => {
   res.json({ message: 'User routes are working!' });

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Filter, MapPin, Star, ShoppingCart, Search } from 'lucide-react';
 import Footer from '@/components/Footer';
 import { cropsAPI, ordersAPI, cartAPI } from '../services/api';
+import { useToast } from "@/hooks/use-toast";
 
 const Marketplace = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -176,13 +177,21 @@ const getCropEmoji = (name) => {
 
 const CropCard = ({ crop, onRefresh }) => {
   const [quantity, setQuantity] = useState(1);
+  const { toast } = useToast();
 
   const handleAddToCart = async () => {
     try {
       await cartAPI.add(crop._id, quantity);
-      alert(`Added ${quantity} ${crop.crop_name}(s) to cart! 🛒`);
+      toast({
+        title: "Added to cart! 🛒",
+        description: `Added ${quantity} ${crop.crop_name}(s) to your cart.`,
+      });
     } catch (err) {
-      alert('Failed to add to cart: ' + err.message);
+      toast({
+        title: "Error",
+        description: 'Failed to add to cart: ' + err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -192,10 +201,18 @@ const CropCard = ({ crop, onRefresh }) => {
         crop_id: crop._id,
         quantity: quantity
       });
-      alert(`Order placed successfully for ${quantity} ${crop.crop_name}(s)!`);
+      toast({
+        title: "Order Placed! 🎉",
+        description: `Successfully ordered ${quantity} ${crop.crop_name}(s).`,
+        className: "bg-green-50 border-green-200 text-green-900"
+      });
       onRefresh();
     } catch (err) {
-      alert('Failed to place order: ' + err.message);
+      toast({
+        title: "Order Failed",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 

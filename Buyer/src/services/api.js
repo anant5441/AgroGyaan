@@ -74,3 +74,9 @@ export const cartAPI = {
         method: 'POST'
     })
 };
+
+// Dashboard API
+export const dashboardAPI = {
+    getStats: () => apiCall('/api/dashboard/stats'),
+    getRecentOrders: () => apiCall('/api/dashboard/recent-orders')
+};

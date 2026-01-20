@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_BACKEND_EXP_URL || 'http://localhost:5678';
 // const getToken = () => sessionStorage.getItem('token');
 // Replace 'YOUR_HARDCODED_JWT_HERE' with your actual test token string
-const getToken = () => 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NmI0ODcwMTUwYTA0YWYyODE3NjU0MyIsInJvbGUiOiJmYXJtZXIiLCJlbWFpbCI6IlByYWRlZXBAZXhhbXBsZS5jb20iLCJuYW1lIjoiUHJhZGVlcCIsImlhdCI6MTc2ODY1OTExMCwiZXhwIjoxNzY4NzQ1NTEwfQ.TIw58yorf9tuC6FaBM-0VzTTYlxJBRCpsMS30a7vGuk'; 
+const getToken = () => "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NmI0ODcwMTUwYTA0YWYyODE3NjU0MyIsInJvbGUiOiJmYXJtZXIiLCJlbWFpbCI6IlByYWRlZXBAZXhhbXBsZS5jb20iLCJuYW1lIjoiUHJhZGVlcCIsImlhdCI6MTc2ODkxMTY4MSwiZXhwIjoxNzY4OTk4MDgxfQ.OfnikZzJZZo9eH0JklF8oKNbTtfjTp__x4AsLPURw-Y";
 
 
 
@@ -36,5 +36,11 @@ export const farmerAPI = {
   updateOrderStatus: (id, status) => apiCall(`/api/orders/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status })
-  })
+  }),
+
+  // edit crop listings 
+  updateListing: (id, data) => apiCall(`/api/crop-listings/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  }),
 };

@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_EXP_URL || 'http://localhost:5
 const getToken = () => {
     // return sessionStorage.getItem('token');
     // HARDCODED TOKEN FOR DEVELOPMENT/DEBUGGING
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NmI0ODcwMTUwYTA0YWYyODE3NjU0MyIsInJvbGUiOiJmYXJtZXIiLCJlbWFpbCI6IlByYWRlZXBAZXhhbXBsZS5jb20iLCJuYW1lIjoiUHJhZGVlcCIsImlhdCI6MTc2ODYzODcyNCwiZXhwIjoxNzY4NzI1MTI0fQ.thQ71JyV4PP9Z4CUNfBZqOUqfp9hPTT26WROLJY2CKw";
+    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5Njk2YjQ1YzYxYTFlODc0ZDQ4YmIwMyIsInJvbGUiOiJidXllciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEJ1eWVyIiwiaWF0IjoxNzY4OTExODMzLCJleHAiOjE3Njg5OTgyMzN9.JtJMTZfzQTgWqtIj4qltwATF8eneefwzwuPgPdkyx00";
 };
 
 

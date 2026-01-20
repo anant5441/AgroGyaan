@@ -9,6 +9,7 @@ import AddCropModal from '../components/AddCropModal';
 const MyListings = () => {
     const [listings, setListings] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedListing, setSelectedListing] = useState(null);
 
     const fetchListings = async () => {
         try {
@@ -32,6 +33,20 @@ const MyListings = () => {
         }
     };
 
+    const handleEdit = (crop) => {
+        setSelectedListing(crop);
+        setIsModalOpen(true);
+    };
+
+    const handleAddNew = () => {
+        setSelectedListing(null);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setSelectedListing(null);
+    };
 
     const getCropEmoji = (name) => {
         const n = name.toLowerCase();
@@ -56,7 +71,7 @@ const MyListings = () => {
                     <p className="text-muted-foreground mt-1">Manage what you sell to the world</p>
                 </div>
 
-                <Button onClick={() => setIsModalOpen(true)} className="w-full md:w-auto bg-gradient-primary">
+                <Button onClick={handleAddNew} className="w-full md:w-auto bg-gradient-primary">
                     <Plus className="mr-2 h-4 w-4" /> Add New Crop
                 </Button>
             </div>
@@ -65,7 +80,7 @@ const MyListings = () => {
                 <div className="text-center py-20 bg-muted/20 rounded-lg border-2 border-dashed">
                     <h3 className="text-xl font-medium text-muted-foreground">No listings yet</h3>
                     <p className="text-sm text-muted-foreground mb-4">Start by adding your first crop!</p>
-                    <Button onClick={() => setIsModalOpen(true)} variant="outline">
+                    <Button onClick={handleAddNew} variant="outline">
                         <Plus className="mr-2 h-4 w-4" /> Add Crop
                     </Button>
                 </div>
@@ -118,8 +133,12 @@ const MyListings = () => {
                                 </div>
 
                                 <div className="flex gap-2 pt-2 border-t">
-                                    {/* Placeholder for Edit - separate task */}
-                                    <Button variant="outline" size="sm" className="flex-1">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1"
+                                        onClick={() => handleEdit(crop)}
+                                    >
                                         <Edit className="w-4 h-4 mr-2" /> Edit
                                     </Button>
                                     <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleDelete(crop._id)}>
@@ -134,8 +153,9 @@ const MyListings = () => {
 
             <AddCropModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={handleCloseModal}
                 onSuccess={fetchListings}
+                listingToEdit={selectedListing}
             />
         </div>
     );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/select";
 import { farmerAPI } from '../services/api';
 
-const AddCropModal = ({ isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({
+const AddCropModal = ({ isOpen, onClose, onSuccess, listingToEdit = null }) => {
+    const initialFormState = {
         crop_name: '',
         variety: '',
         price_per_unit_retail: '',
@@ -23,40 +23,63 @@ const AddCropModal = ({ isOpen, onClose, onSuccess }) => {
         sale_type: 'retail',
         image_url: '',
         organic_certified: false
-    });
+    };
+
+    const [formData, setFormData] = useState(initialFormState);
+
+    // Effect to populate form when editing
+    useEffect(() => {
+        if (isOpen) {
+            if (listingToEdit) {
+                setFormData({
+                    crop_name: listingToEdit.crop_name || '',
+                    variety: listingToEdit.variety || '',
+                    price_per_unit_retail: listingToEdit.price_per_unit_retail || '',
+                    Quantity_available_retail: listingToEdit.Quantity_available_retail || '',
+                    unit_retail: listingToEdit.unit_retail || 'kg',
+                    sale_type: listingToEdit.sale_type || 'retail',
+                    image_url: listingToEdit.image_url || '',
+                    organic_certified: listingToEdit.organic_certified || false
+                });
+            } else {
+                setFormData(initialFormState);
+            }
+        }
+    }, [isOpen, listingToEdit]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await farmerAPI.createListing({
+            const payload = {
                 ...formData,
                 // Ensure numbers are numbers
                 price_per_unit_retail: Number(formData.price_per_unit_retail),
                 Quantity_available_retail: Number(formData.Quantity_available_retail),
+                // keep status active if creating, or preserve/update if we were to support status editing here
+                // For now, let's just assume we keep it active or don't change it implicitly unless needed
                 listing_status: 'active'
-            });
+            };
+
+            if (listingToEdit) {
+                await farmerAPI.updateListing(listingToEdit._id, payload);
+            } else {
+                await farmerAPI.createListing(payload);
+            }
+
             onSuccess();
             onClose();
-            // Reset form
-            setFormData({
-                crop_name: '',
-                variety: '',
-                price_per_unit_retail: '',
-                Quantity_available_retail: '',
-                unit_retail: 'kg',
-                sale_type: 'retail',
-                image_url: '',
-                organic_certified: false
-            });
+            setFormData(initialFormState);
         } catch (err) {
-            alert("Error creating listing: " + err.message);
+            alert(`Error ${listingToEdit ? 'updating' : 'creating'} listing: ` + err.message);
         }
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-[500px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Add New Crop Listing</DialogTitle></DialogHeader>
+                <DialogHeader>
+                    <DialogTitle>{listingToEdit ? 'Edit Crop Listing' : 'Add New Crop Listing'}</DialogTitle>
+                </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
 
                     <div className="grid w-full items-center gap-1.5">
@@ -163,7 +186,9 @@ const AddCropModal = ({ isOpen, onClose, onSuccess }) => {
                         </label>
                     </div>
 
-                    <Button type="submit" className="w-full">Create Listing</Button>
+                    <Button type="submit" className="w-full">
+                        {listingToEdit ? 'Update Listing' : 'Create Listing'}
+                    </Button>
                 </form>
             </DialogContent>
         </Dialog>

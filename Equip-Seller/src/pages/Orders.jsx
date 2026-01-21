@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
 import { Download, Filter, Eye, Check, X, Clock, Search } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -52,10 +53,34 @@ const initialOrdersData = [
 ];
 
 export const Orders = () => {
-  const [orders, setOrders] = useState(initialOrdersData);
+  const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('all');
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const response = await api.equipmentOrders.getSupplierOrders();
+        if (response.success) {
+          const mappedOrders = response.data.map(order => ({
+            id: order._id,
+            buyerName: order.buyer_id?.name || 'Unknown Buyer', // Assuming populate works
+            equipmentName: order.equipment_id?.name || 'Unknown Equipment',
+            status: order.status,
+            paymentStatus: order.status === 'completed' ? 'completed' : 'pending', // SImple logic for now
+            amount: `₹${order.price_total}`,
+            date: order.createdAt, // or start_date
+            location: order.buyer_id?.address || 'Unknown Location' // Assuming address in buyer
+          }));
+          setOrders(mappedOrders);
+        }
+      } catch (error) {
+        console.error("Failed to fetch orders:", error);
+      }
+    };
+    fetchOrders();
+  }, []);
 
   // Calculate summary data based on current orders
   const summaryData = {
@@ -87,17 +112,17 @@ export const Orders = () => {
 
   // Function to update order status
   const updateOrderStatus = (orderId, newStatus) => {
-    setOrders(prevOrders => 
-      prevOrders.map(order => 
-        order.id === orderId 
-          ? { 
-              ...order, 
-              status: newStatus,
-              // Update payment status based on order status
-              paymentStatus: newStatus === 'cancelled' ? 'refunded' : 
-                            newStatus === 'completed' ? 'completed' : 
-                            order.paymentStatus
-            } 
+    setOrders(prevOrders =>
+      prevOrders.map(order =>
+        order.id === orderId
+          ? {
+            ...order,
+            status: newStatus,
+            // Update payment status based on order status
+            paymentStatus: newStatus === 'cancelled' ? 'refunded' :
+              newStatus === 'completed' ? 'completed' :
+                order.paymentStatus
+          }
           : order
       )
     );
@@ -105,16 +130,16 @@ export const Orders = () => {
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.buyerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.equipmentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.id.toLowerCase().includes(searchQuery.toLowerCase());
+      order.equipmentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === 'all' || order.status === activeTab;
-    
+
     // Date filter logic
     if (dateFilter !== 'all') {
       const orderDate = new Date(order.date);
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      
+
       switch (dateFilter) {
         case 'today':
           if (orderDate < todayStart) return false;
@@ -129,7 +154,7 @@ export const Orders = () => {
           break;
       }
     }
-    
+
     return matchesSearch && matchesTab;
   });
 
@@ -191,7 +216,7 @@ export const Orders = () => {
                   className="pl-10"
                 />
               </div>
-              
+
               <Select value={dateFilter} onValueChange={setDateFilter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Date" />
@@ -244,7 +269,7 @@ export const Orders = () => {
                             {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
                           </Badge>
                         </div>
-                        
+
                         <h3 className="font-semibold text-lg">{order.equipmentName}</h3>
                         <p className="text-sm text-muted-foreground">
                           Buyer: {order.buyerName} • {order.location}
@@ -264,19 +289,19 @@ export const Orders = () => {
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </Button>
-                          
+
                           {order.status === 'pending' && (
                             <>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 className="bg-green-600 hover:bg-green-700"
                                 onClick={() => updateOrderStatus(order.id, 'confirmed')}
                               >
                                 <Check className="w-4 h-4 mr-2" />
                                 Confirm
                               </Button>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 variant="destructive"
                                 onClick={() => updateOrderStatus(order.id, 'cancelled')}
                               >
@@ -285,10 +310,10 @@ export const Orders = () => {
                               </Button>
                             </>
                           )}
-                          
+
                           {order.status === 'confirmed' && (
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               className="bg-blue-600 hover:bg-blue-700"
                               onClick={() => updateOrderStatus(order.id, 'completed')}
                             >

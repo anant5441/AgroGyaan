@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
 import { Search, Filter, Grid3X3, List, Edit, Eye, MapPin, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -58,12 +59,48 @@ export const ViewEquipment = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('date');
-  const [equipment, setEquipment] = useState(equipmentData);
+  const [equipment, setEquipment] = useState([]); // Start empty
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  // Fetch listings on mount
+  React.useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        const data = await api.equipmentListings.getMyListings();
+        // Transform data if needed to match UI expectations (e.g., adding image placeholder if missing)
+        const mappedData = data.map(item => ({
+          id: item._id,
+          name: item.name,
+          type: item.type,
+          brand: item.brand || 'Unknown', // Backend might not strict require brand
+          price: `₹${item.price}`,
+          listingType: item.listing_type,
+          location: item.city ? `${item.city}, ${item.state}` : 'Unknown Location',
+          condition: item.condition || 'Used',
+          available: item.availability,
+          views: 0, // Backend doesn't track views yet
+          image: item.image_url || tractor // Use URL or fallback
+        }));
+        setEquipment(mappedData);
+      } catch (error) {
+        console.error("Failed to fetch listings:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your listings. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchListings();
+  }, [toast]);
 
   const filteredEquipment = equipment.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.type.toLowerCase().includes(searchQuery.toLowerCase());
+      item.type.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = filterType === 'all' || item.type.toLowerCase() === filterType;
     return matchesSearch && matchesType;
   }).sort((a, b) => {
@@ -81,12 +118,22 @@ export const ViewEquipment = () => {
     }
   });
 
-  const handleDelete = (id) => {
-    setEquipment(prev => prev.filter(item => item.id !== id));
-    toast({
-      title: "Equipment deleted",
-      description: "The equipment has been successfully removed from your listings.",
-    });
+  const handleDelete = async (id) => {
+    try {
+      await api.equipmentListings.delete(id);
+      setEquipment(prev => prev.filter(item => item.id !== id));
+      toast({
+        title: "Equipment deleted",
+        description: "The equipment has been successfully removed from your listings.",
+      });
+    } catch (error) {
+      console.error("Failed to delete listing:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete listing.",
+        variant: "destructive"
+      });
+    }
   };
 
   const resetFilters = () => {
@@ -124,7 +171,7 @@ export const ViewEquipment = () => {
                   className="pl-10"
                 />
               </div>
-              
+
               <Select value={filterType} onValueChange={setFilterType}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Type" />
@@ -195,7 +242,7 @@ export const ViewEquipment = () => {
                   className="w-full h-48 object-cover rounded-t-xl"
                 />
                 <div className="absolute top-3 right-3">
-                  <Badge 
+                  <Badge
                     variant={equipment.available ? 'default' : 'secondary'}
                     className="bg-white/90 text-foreground"
                   >
@@ -208,24 +255,24 @@ export const ViewEquipment = () => {
                   </Badge>
                 </div>
               </div>
-              
+
               <CardContent className="p-4">
                 <div className="space-y-3">
                   <div>
                     <h3 className="font-semibold text-lg">{equipment.name}</h3>
                     <p className="text-sm text-muted-foreground">{equipment.brand} • {equipment.condition}</p>
                   </div>
-                  
+
                   <div className="flex items-center text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4 mr-1" />
                     {equipment.location}
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-primary">{equipment.price}</span>
                     <span className="text-sm text-muted-foreground">{equipment.views} views</span>
                   </div>
-                  
+
                   <div className="flex gap-2">
                     <Button size="sm" className="flex-1">
                       <Edit className="w-4 h-4 mr-2" />
@@ -236,7 +283,7 @@ export const ViewEquipment = () => {
                       View
                     </Button>
                   </div>
-                  
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button size="sm" variant="destructive" className="w-full mt-2">
@@ -276,7 +323,7 @@ export const ViewEquipment = () => {
                       alt={equipment.name}
                       className="w-16 h-16 object-cover rounded-lg"
                     />
-                    
+
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div>
@@ -289,13 +336,13 @@ export const ViewEquipment = () => {
                             {equipment.location}
                           </div>
                         </div>
-                        
+
                         <div className="text-right">
                           <div className="text-lg font-bold text-primary">{equipment.price}</div>
                           <div className="text-sm text-muted-foreground">{equipment.views} views</div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between mt-3">
                         <div className="flex gap-2">
                           <Badge variant={equipment.available ? 'default' : 'secondary'}>
@@ -305,7 +352,7 @@ export const ViewEquipment = () => {
                             {equipment.listingType === 'sale' ? 'For Sale' : 'For Rent'}
                           </Badge>
                         </div>
-                        
+
                         <div className="flex gap-2">
                           <Button size="sm">
                             <Edit className="w-4 h-4 mr-2" />

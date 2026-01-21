@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { api } from '../services/api';
 import { Upload, MapPin, Save, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -27,29 +28,72 @@ export const AddEquipment = () => {
     state: '',
     condition: '',
     available: true,
-    description: ''
+    description: '',
+    image_url: ''
   });
 
-  const [images, setImages] = useState([]);
+  // const [images, setImages] = useState([]); // Removed for URL version
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleImageUpload = (e) => {
-    if (e.target.files) {
-      setImages(prev => [...prev, ...Array.from(e.target.files)]);
-    }
-  };
+  /* Removed file handlers for URL version */
 
-  const removeImage = (index) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', { formData, images });
-    // Handle form submission
+    try {
+      // Prepare data for API
+      // Note: Backend expects 'listing_type' but state has 'listingType'.
+      // Location is hardcoded for now as per walkthrough example, or we could add fields for lat/long if needed.
+      // Ideally we should get real location data.
+      const payload = {
+        name: formData.name,
+        type: formData.type,
+        brand: formData.brand,
+        model: formData.model,
+        year: formData.year,
+        price: Number(formData.price),
+        listing_type: formData.listingType,
+        city: formData.city,
+        state: formData.state,
+        condition: formData.condition,
+        availability: formData.available,
+        description: formData.description,
+        image_url: formData.image_url, // Added image_url
+        location: {
+          type: 'Point',
+          coordinates: [77.2090, 28.6139]
+        }
+      };
+
+      console.log('Submitting payload:', payload);
+      await api.equipmentListings.create(payload);
+
+      // Reset form or show success message
+      alert('Equipment listed successfully!');
+      // Reset logic could go here or navigate away
+      setFormData({
+        name: '',
+        type: '',
+        brand: '',
+        model: '',
+        year: '',
+        price: '',
+        listingType: 'sale',
+        city: '',
+        state: '',
+        condition: '',
+        available: true,
+        description: '',
+        image_url: ''
+      });
+      // setImages([]);
+
+    } catch (error) {
+      console.error('Failed to list equipment:', error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   return (
@@ -81,7 +125,7 @@ export const AddEquipment = () => {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="type">Equipment Type *</Label>
                 <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
@@ -109,7 +153,7 @@ export const AddEquipment = () => {
                   placeholder="e.g., Mahindra"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="model">Model</Label>
                 <Input
@@ -119,7 +163,7 @@ export const AddEquipment = () => {
                   placeholder="e.g., 575 DI"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="year">Manufacturing Year</Label>
                 <Input
@@ -155,7 +199,7 @@ export const AddEquipment = () => {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Listing Type</Label>
                 <div className="flex space-x-4">
@@ -240,7 +284,7 @@ export const AddEquipment = () => {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="state">State *</Label>
                 <Input
@@ -274,50 +318,29 @@ export const AddEquipment = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="images">Equipment Images</Label>
-              <div className="border-2 border-dashed border-border/50 rounded-xl p-6 text-center hover:border-primary/50 transition-smooth">
-                <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  Drag and drop your images here, or click to browse
-                </p>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="image-upload"
-                />
-                <Button variant="outline" asChild>
-                  <label htmlFor="image-upload" className="cursor-pointer">
-                    Choose Files
-                  </label>
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2">
-                  PNG, JPG up to 10MB each
-                </p>
-              </div>
+              <Label htmlFor="image_url">Equipment Image URL</Label>
+              <Input
+                id="image_url"
+                value={formData.image_url}
+                onChange={(e) => handleInputChange('image_url', e.target.value)}
+                placeholder="https://example.com/tractor-image.jpg"
+              />
+              <p className="text-sm text-muted-foreground">
+                Paste a link to an image of your equipment.
+              </p>
 
-              {images.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                  {images.map((image, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={URL.createObjectURL(image)}
-                        alt={`Upload ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-1 right-1 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeImage(index)}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
+              {formData.image_url && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2">Preview:</p>
+                  <img
+                    src={formData.image_url}
+                    alt="Preview"
+                    className="w-full max-w-md h-48 object-cover rounded-lg border"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "https://via.placeholder.com/400x200?text=Invalid+Image+URL";
+                    }}
+                  />
                 </div>
               )}
             </div>

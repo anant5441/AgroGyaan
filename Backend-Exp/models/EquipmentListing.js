@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const equipmentListingSchema = new mongoose.Schema({
     supplier_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Supplier',
+        ref: 'User',
         required: true
     },
     name: {
@@ -24,16 +24,20 @@ const equipmentListingSchema = new mongoose.Schema({
     },
     location: {
         type: {
-        type: String,
-        enum: ['Point'],
-        required: true
+            type: String,
+            enum: ['Point'],
+            required: true
         },
         coordinates: {
-        type: [Number],
-        required: true
+            type: [Number],
+            required: true
         }
+    },
+    image_url: {
+        type: String,
+        default: ''
     }
-    }, {
+}, {
     timestamps: true
 });
 

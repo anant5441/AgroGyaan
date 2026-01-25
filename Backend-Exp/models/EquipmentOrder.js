@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const equipmentOrderSchema = new mongoose.Schema({
     buyer_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Buyer',
+        ref: 'User',
         required: true
     },
     equipment_id: {
@@ -13,7 +13,7 @@ const equipmentOrderSchema = new mongoose.Schema({
     },
     supplier_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Supplier',
+        ref: 'User',
         required: true
     },
     order_type: {
@@ -32,7 +32,7 @@ const equipmentOrderSchema = new mongoose.Schema({
         enum: ['pending', 'confirmed', 'completed', 'cancelled'],
         default: 'pending'
     }
-    }, {
+}, {
     timestamps: true
 });
 

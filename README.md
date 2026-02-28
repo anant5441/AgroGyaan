@@ -6,7 +6,7 @@
 
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge&logo=github)](https://github.com)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.0.0-purple?style=for-the-badge)](https://github.com)
+[![Version](https://img.shields.io/badge/Version-2.1.0-purple?style=for-the-badge)](https://github.com)
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
@@ -31,6 +31,7 @@
 - [Configuration Options](#-configuration-options)
 - [Contributing](#-contributing)
 - [License](#-license)
+- [Recent Changes (v2.1.0)](#-recent-changes-v210)
 - [Future Roadmap](#-future-roadmap)
 - [FAQ](#-frequently-asked-questions)
 - [Contact](#-contact)
@@ -51,6 +52,9 @@ AgroGyaan is an **AI-powered agricultural platform** that bridges the gap betwee
 - 💰 **Market Intelligence** — Real-time commodity prices from government sources
 - 🌐 **Multi-language Support** — 12+ regional Indian languages via text-to-speech
 - 🛒 **Direct Marketplace** — Connect farmers, buyers, and equipment suppliers
+- 🚜 **Equipment Listing & Ordering** — Full equipment management for sellers with order tracking
+- 📋 **Dynamic Dashboards** — Real-time buyer and seller dashboards with analytics
+- ✏️ **Crop Listing Management** — Create, edit, and manage crop listings with ease
 
 ### Key Highlights
 
@@ -61,6 +65,7 @@ AgroGyaan is an **AI-powered agricultural platform** that bridges the gap betwee
 | 📚 Knowledge Base | RAG with Pinecone Vector DB |
 | ⚡ Response Time | <2s with intelligent caching |
 | 🔐 Uptime SLA | 99.9% with model fallback |
+| 🚀 Deployment | Vercel (Frontend) + Render (Backend) |
 
 ---
 
@@ -226,18 +231,21 @@ curl -X POST http://localhost:8000/api/chat-with-image \
 ### User Roles
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        AGROGYAAN USERS                          │
-├─────────────────┬─────────────────────┬─────────────────────────┤
-│    🌱 FARMER    │     🛒 BUYER       │   🚜 EQUIPMENT SELLER  │
-├─────────────────┼─────────────────────┼─────────────────────────┤
-│ • Crop Planning │ • Browse Listings   │ • List Equipment        │
-│ • AI Chat       │ • Direct Purchase   │ • Manage Inventory      │
-│ • Disease Detect│ • Quality Assurance │ • Customer Chat         │
-│ • Weather Check │ • Price Comparison  │ • Order Processing      │
-│ • Price Tracker │ • Farmer Chat       │ • Technical Support     │
-│ • Organic Guide │ • Order Management  │ • Market Insights       │
-└─────────────────┴─────────────────────┴─────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                        AGROGYAAN USERS                            │
+├──────────────────┬──────────────────────┬─────────────────────────┤
+│    🌱 FARMER     │     🛒 BUYER        │   🚜 EQUIPMENT SELLER  │
+├──────────────────┼──────────────────────┼─────────────────────────┤
+│ • Crop Planning  │ • Browse Listings    │ • Add/Edit Equipment    │
+│ • AI Chat        │ • Direct Purchase    │ • View Equipment List   │
+│ • Disease Detect │ • Dynamic Dashboard  │ • Order Management      │
+│ • Weather Check  │ • Price Comparison   │ • Seller Dashboard      │
+│ • Price Tracker  │ • Farmer Chat        │ • Customer Chat         │
+│ • Organic Guide  │ • Order Management   │ • Notifications         │
+│ • Edit Listings  │ • Marketplace Search │ • Seller Profile        │
+│ • My Listings    │ • Cart Management    │ • Market Insights       │
+│ • My Orders      │ • Notifications      │ • Dashboard Overview    │
+└──────────────────┴──────────────────────┴─────────────────────────┘
 ```
 
 ---
@@ -266,6 +274,10 @@ graph TB
             CROPC[Crop Listings]
             USERC[User Management]
             CHATC[Chat Rooms]
+            EQUIP[Equipment Listings]
+            EQORD[Equipment Orders]
+            DASH[Buyer Dashboard]
+            SDASH[Seller Dashboard]
         end
         
         subgraph AIBackend["Backend-AI (FastAPI)"]
@@ -413,8 +425,13 @@ flowchart LR
 | Direct Messaging | ✅ | ✅ | ✅ |
 | Order Management | ✅ | ✅ | ✅ |
 | Organic Farming Guide | ✅ | ❌ | ❌ |
-| Equipment Catalog | ❌ | ❌ | ✅ |
+| Equipment Catalog | ❌ | ✅ | ✅ |
 | Multi-language TTS | ✅ | ❌ | ❌ |
+| Dynamic Dashboard | ❌ | ✅ | ✅ |
+| Crop Listing Edit | ✅ | ❌ | ❌ |
+| Equipment Ordering | ❌ | ✅ | ✅ |
+| Cart Management | ❌ | ✅ | ❌ |
+| Seller Dashboard | ❌ | ❌ | ✅ |
 
 ### Technology Stack Comparison
 
@@ -535,6 +552,38 @@ MIT License
 
 Copyright (c) 2026 AgroGyaan Team
 ```
+
+---
+
+## 📝 Recent Changes (v2.1.0)
+
+### 🚜 Equipment Seller Module
+- **Equipment Listing Management** — Add, view, and manage equipment listings with full CRUD operations
+- **Order Management** — Track and process equipment orders with status updates
+- **Seller Dashboard** — Real-time dashboard with analytics and overview metrics
+- **API Service Layer** — Dedicated `api.js` service for all equipment seller API calls
+
+### 🛒 Buyer Module
+- **Dynamic Dashboard** — Fully dynamic `DashboardOverview` and `DashboardLayout` with real-time data
+- **Enhanced Marketplace** — Improved search, filtering, and browsing experience
+- **Order Tracking** — View and manage orders with real-time status updates
+
+### 🌱 Farmer Module
+- **Crop Listing Editing** — Edit existing crop listings via updated `AddCropModal`
+- **My Listings Management** — Enhanced listing management with edit/delete capabilities
+- **URL & Service Updates** — Updated API endpoints and service configurations
+
+### ⚙️ Backend-Exp (Express.js)
+- **Equipment Listing Routes & Controller** — Full REST API for equipment CRUD (`/api/equipment-listings`)
+- **Equipment Order Routes & Controller** — Order management API (`/api/equipment-orders`)
+- **Buyer Dashboard Controller** — Dashboard analytics and stats API (`/api/dashboard`)
+- **Seller Dashboard Controller** — Seller-specific dashboard metrics (`/api/seller-dashboard`)
+- **Crop Listing Edit** — Added edit functionality to crop listing routes
+- **Bug Fixes** — Fixed order routes and connection handling (port reset to 5000)
+
+### 🚀 Deployment
+- **Vercel Configuration** — Added `vercel.json` for Buyer, Equipment Seller, and updated Farmer app
+- **SPA Routing** — Configured rewrites for client-side routing in production
 
 ---
 
@@ -663,10 +712,13 @@ All data is stored in encrypted MongoDB databases. We do not share user data wit
 
 ### Production Deployments
 
-| Service | URL |
-|---------|-----|
-| **AI Backend** | https://agrogyaan-b-ai.onrender.com |
-| **Express Backend** | https://backend-exp-yul4.onrender.com |
+| Service | URL | Platform |
+|---------|-----|----------|
+| **AI Backend** | https://agrogyaan-b-ai.onrender.com | Render |
+| **Express Backend** | https://backend-exp-yul4.onrender.com | Render |
+| **Farmer App** | https://agro-gyaan-xi.vercel.app/ | Vercel |
+| **Buyer App** | https://agrogyaan-buyer.vercel.app/ | Vercel |
+| **Equipment Seller App** | https://agrogyaan-seller.vercel.app/ | Vercel |
 
 ---
 

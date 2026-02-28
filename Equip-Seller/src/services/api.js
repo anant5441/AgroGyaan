@@ -1,11 +1,12 @@
-const API_BASE_URL = import.meta.env.VITE_BACKEND_EXP_URL || 'http://localhost:5678';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_EXP_URL || 'http://localhost:5000';
 
 // Helper function to get token
 const getToken = () => {
+     return localStorage.getItem('token');
     // return sessionStorage.getItem('token');
     // HARDCODED TOKEN FOR DEVELOPMENT/DEBUGGING - USING SAME AS BUYER FOR NOW BUT SHOULD BE SUPPLIER TOKEN
 
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NmNjZTA1OWJhYjM4ZTlkODU1ZGM2MyIsInJvbGUiOiJzdXBwbGllciIsImVtYWlsIjoiaGFyc2hpdEBleGFtcGxlLmNvbSIsIm5hbWUiOiJoYXJzaGl0IiwiaWF0IjoxNzY4OTE1NzI3LCJleHAiOjE3NjkwMDIxMjd9._1JTV3N_nYu3fyabD1gRPn8oeTmpqisEYBWULPSufOw"
+    // return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NmNjZTA1OWJhYjM4ZTlkODU1ZGM2MyIsInJvbGUiOiJzdXBwbGllciIsImVtYWlsIjoiaGFyc2hpdEBleGFtcGxlLmNvbSIsIm5hbWUiOiJoYXJzaGl0IiwiaWF0IjoxNzY4OTE1NzI3LCJleHAiOjE3NjkwMDIxMjd9._1JTV3N_nYu3fyabD1gRPn8oeTmpqisEYBWULPSufOw"
 };
 
 

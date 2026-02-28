@@ -1,7 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_BACKEND_EXP_URL || 'http://localhost:5678';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_EXP_URL || 'http://localhost:5000';
+const getToken = () => localStorage.getItem('token');
 // const getToken = () => sessionStorage.getItem('token');
 // Replace 'YOUR_HARDCODED_JWT_HERE' with your actual test token string
-const getToken = () => "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NmI0ODcwMTUwYTA0YWYyODE3NjU0MyIsInJvbGUiOiJmYXJtZXIiLCJlbWFpbCI6IlByYWRlZXBAZXhhbXBsZS5jb20iLCJuYW1lIjoiUHJhZGVlcCIsImlhdCI6MTc2ODkxMTY4MSwiZXhwIjoxNzY4OTk4MDgxfQ.OfnikZzJZZo9eH0JklF8oKNbTtfjTp__x4AsLPURw-Y";
+// const getToken = () => "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NmI0ODcwMTUwYTA0YWYyODE3NjU0MyIsInJvbGUiOiJmYXJtZXIiLCJlbWFpbCI6IlByYWRlZXBAZXhhbXBsZS5jb20iLCJuYW1lIjoiUHJhZGVlcCIsImlhdCI6MTc2ODkxMTY4MSwiZXhwIjoxNzY4OTk4MDgxfQ.OfnikZzJZZo9eH0JklF8oKNbTtfjTp__x4AsLPURw-Y";
 
 
 

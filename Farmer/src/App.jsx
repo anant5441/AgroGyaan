@@ -45,11 +45,20 @@ const App = () => {
     const token = params.get('token');
     const user = params.get('user');
 
+    // if (token) {
+    //   // Store in sessionStorage instead of localStorage for security
+    //   sessionStorage.setItem('token', token);
+    //   if (user) {
+    //     sessionStorage.setItem('user', decodeURIComponent(user));
+    //   }
+    //   // Clean URL after storing
+    //   window.history.replaceState({}, document.title, window.location.pathname);
+    // }
     if (token) {
-      // Store in sessionStorage instead of localStorage for security
-      sessionStorage.setItem('token', token);
+      // Store in  local storage for security
+      localStorage.setItem('token', token);
       if (user) {
-        sessionStorage.setItem('user', decodeURIComponent(user));
+        localStorage.setItem('user', decodeURIComponent(user));
       }
       // Clean URL after storing
       window.history.replaceState({}, document.title, window.location.pathname);

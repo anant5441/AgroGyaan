@@ -43,7 +43,7 @@ const Messages = () => {
 
   useEffect(() => {
     const fetchCurrentUser = () => {
-      let stored = window.sessionStorage.getItem('user');
+      let stored = window.localStorage.getItem('user');
       if (stored) {
         try {
           const parsed = JSON.parse(stored);

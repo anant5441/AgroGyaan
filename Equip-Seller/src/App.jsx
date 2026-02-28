@@ -29,8 +29,12 @@ const App = () => {
         const user = JSON.parse(decodeURIComponent(userData));
         
         // Store in sessionStorage for this domain
-        sessionStorage.setItem('token', token);
-        sessionStorage.setItem('user', JSON.stringify(user));
+        // sessionStorage.setItem('token', token);
+        // sessionStorage.setItem('user', JSON.stringify(user));
+
+        //store in local storage
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
         
         console.log('Authentication data stored:', { token, user }); // Debug log
         

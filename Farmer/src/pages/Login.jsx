@@ -461,10 +461,12 @@ const AuthPage = () => {
     
     switch(role) {
       case 'farmer':
-        baseUrl = 'https://farmer-bice.vercel.app/';
+        // baseUrl = 'https://farmer-bice.vercel.app/';
+         baseUrl = 'http://localhost:5173/';
         break;
       case 'buyer':
-        baseUrl = 'https://buyer-iota.vercel.app/';
+       //  baseUrl = 'https://buyer-iota.vercel.app/';
+         baseUrl = 'http://localhost:5174/';
         break;
       case 'supplier':
         baseUrl = 'https://equip-seller.vercel.app/';

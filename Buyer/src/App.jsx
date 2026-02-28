@@ -32,9 +32,9 @@ const App = () => {
         // Parse the user data from JSON string
         const user = JSON.parse(decodeURIComponent(userData));
 
-        // Store in sessionStorage for this domain
-        sessionStorage.setItem('token', token);
-        sessionStorage.setItem('user', JSON.stringify(user));
+        // Store in local storage for this domain
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
 
         console.log('Authentication data stored:', { token, user }); // Debug log
 

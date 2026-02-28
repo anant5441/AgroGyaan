@@ -461,15 +461,15 @@ const AuthPage = () => {
     
     switch(role) {
       case 'farmer':
-        // baseUrl = 'https://farmer-bice.vercel.app/';
-         baseUrl = 'http://localhost:5173/';
+        baseUrl = 'https://agro-gyaan-xi.vercel.app/';
+         //baseUrl = 'http://localhost:5173/';
         break;
       case 'buyer':
-       //  baseUrl = 'https://buyer-iota.vercel.app/';
-         baseUrl = 'http://localhost:5174/';
+        baseUrl = 'https://agrogyaan-buyer.vercel.app/';
+        //baseUrl = 'http://localhost:5174/';
         break;
       case 'supplier':
-        baseUrl = 'https://equip-seller.vercel.app/';
+        baseUrl = 'https://agrogyaan-seller.vercel.app/';
         break;
       default:
         baseUrl = 'http://localhost:5173/';

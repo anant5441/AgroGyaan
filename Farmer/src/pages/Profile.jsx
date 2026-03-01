@@ -8,6 +8,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { User, Mail, Phone, Lock, Save, Edit3, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 // import { useToast } from '@/components/ui/use-toast';
 
+const API_BASE_URL = import.meta.env.VITE_BACKEND_EXP_URL || 'http://localhost:5000';
+
 const Profile = () => {
   const navigate = useNavigate();
 //   const { toast } = useToast();
@@ -84,7 +86,7 @@ const Profile = () => {
         updateData.newPassword = formData.newPassword;
       }
 
-      const response = await fetch(`http://localhost:5000/api/users/${user.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
